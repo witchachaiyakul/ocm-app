@@ -325,68 +325,79 @@
         </div>
     </div>
 
-    <div id="main-dashboard" class="hidden main-layout">
-        <div class="media-box w-full max-w-5xl h-[450px]" style="padding:0; overflow: hidden;">
-            <h3 style="margin:12px; color:#ccc;">👁️ กระจกโต้ตอบการเคลื่อนไหว (Visual Mirror)</h3>
-            <div class="video-wrapper" style="height: calc(100% - 48px); border-radius: 8px;">
-                <video id="webcam" autoplay playsinline muted style="display: none;"></video>
-                <canvas id="output-canvas"></canvas>
-                <div id="count-display"></div>
-                <div id="mirror-fallback" class="mirror-fallback">
-                    กำลังรอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...
+        <div id="main-dashboard" class="hidden main-layout">
+            <div class="flex flex-col items-center w-full min-h-screen bg-gray-950 text-white p-4 space-y-4 font-sans select-none">
+                <div id="visual-mirror-container" class="w-full max-w-6xl bg-black rounded-xl overflow-hidden shadow-2xl border-4 border-yellow-400 relative">
+                    <video id="webcam" autoplay playsinline class="w-full h-[360px] object-cover transform -scale-x-100 bg-gray-900"></video>
+                    <canvas id="output-canvas" class="w-full h-[360px] object-cover transform -scale-x-100 bg-gray-900"></canvas>
+                                        <div id="mirror-overlay" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 transition-all duration-300">
+                                            <button id="play-btn" class="px-8 py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-950 text-xl font-black rounded-full shadow-2xl transform hover:scale-105 transition active:scale-95 flex items-center space-x-2 z-10 cursor-pointer">
+                                                <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                <span>เริ่มฝึกซ้อมดนตรี</span>
+                                            </button>
+                                            <div id="count-display" class="text-yellow-300 font-black text-[12rem] drop-shadow-[0_10px_15px_rgba(0,0,0,0.9)] select-none hidden">1</div>
+                                        </div>
+                                        <div id="mirror-fallback" class="mirror-fallback" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center;">กำลังรอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...</div>
+                </div>
+
+                                <div class="w-full max-w-6xl flex flex-col md:flex-row gap-2 justify-between items-center text-xs bg-gray-900 border border-gray-800 rounded-lg p-3">
+                                        <div class="text-emerald-400 font-medium">🟢 คำแนะนำ: เข้าสู่ระบบจาก LINE แล้วเลือกเพลงเพื่อเริ่มซ้อมดนตรี Orff แบบเรียลไทม์</div>
+                                        <div class="flex items-center space-x-4">
+                                            <div>ผู้ใช้: <span id="user-name" class="font-bold text-yellow-400">wit</span></div>
+                                            <div>เพลงปัจจุบัน: <span id="current-song-title" class="text-cyan-400 font-bold">ซมซาน - Sek Loso</span></div>
+                                            <div>
+                                                <label for="song-select" class="sr-only">เลือกเพลง</label>
+                                                <select id="song-select" class="text-black bg-white font-normal text-sm rounded-md p-1">
+                                                    <option value="die_with_a_smile">Die With A Smile - Bruno Mars & Lady Gaga</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                </div>
+
+                <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div class="lg:col-span-1 bg-gray-900 rounded-xl p-4 border border-gray-850 flex flex-col justify-between shadow-lg">
+                        <div>
+                            <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">🎬 บทเรียนต้นแบบ (YouTube)</h3>
+                            <div class="w-full aspect-video rounded-lg overflow-hidden bg-black border border-gray-800 shadow-inner">
+                                <div id="player" class="w-full h-full relative">
+                                    <div id="yt-player" class="absolute inset-0 w-full h-full"></div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-2 w-full mt-3">
+                                <span id="current-time-text" class="text-xs font-mono text-gray-400">0:00</span>
+                                <input type="range" id="custom-progress" min="0" max="100" value="0" step="0.1" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-yellow-400 transition" />
+                                <span id="duration-text" class="text-xs font-mono text-gray-400">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 bg-gray-900 rounded-xl p-4 border border-gray-850 flex flex-col justify-between shadow-lg">
+                        <div>
+                            <h3 class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5">🎵 แผงควบคุมจังหวะและคอร์ด (Beat Blocks)</h3>
+                            <div id="beat-blocks-grid" class="grid grid-cols-4 sm:grid-cols-8 gap-2 min-h-[140px] p-2 bg-gray-950 rounded-lg border border-gray-850"></div>
+                            <div id="chord-timeline" class="chord-timeline-scroll mt-2"></div>
+                        </div>
+
+                        <div class="mt-4 p-3 bg-gray-950 border border-gray-850 rounded-lg text-center shadow-inner">
+                                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">🎤 เนื้อร้องตามจังหวะ</p>
+                                        <div id="lyrics-zone" class="text-xl md:text-2xl text-green-400 font-black min-h-[36px] drop-shadow-md transition-all duration-200">รอระบบนับจังหวะสัญญานเริ่มซ้อม...</div>
+                                    </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="intro-note">
-            <strong>คำแนะนำ:</strong> เข้าสู่ระบบจาก LINE แล้วเลือกเพลงเพื่อเริ่มซ้อมกับกระจกและคอร์ดแบบเรียลไทม์
-        </div>
 
-        <div id="user-profile-card" class="profile-card hidden">
-            <h4 id="profile-greeting">ผู้ใช้</h4>
-            <p id="profile-details">กำลังตรวจสอบข้อมูลจาก Firestore...</p>
-        </div>
+    <div id="user-profile-card" class="profile-card hidden" style="display:none;">
+        <h4 id="profile-greeting">ผู้ใช้</h4>
+        <p id="profile-details">กำลังตรวจสอบข้อมูลจาก Firestore...</p>
+    </div>
 
-        <div id="new-user-setup" class="setup-card hidden">
-            <h4>ผู้ใช้ใหม่ — เลือกเพลงจาก Firestore</h4>
-            <p>ระบบยังไม่พบประวัติการเลือกเพลงของคุณ กรุณาเลือกเพลงเพื่อเริ่มใช้งาน</p>
-            <select id="new-user-song-select" class="w-full mt-3 px-3 py-2 rounded-lg text-black"></select>
-            <button id="btn-confirm-song" class="mt-3 w-full py-2 bg-[#00B900] hover:bg-[#009900] text-white font-bold rounded-lg">ยืนยันเลือกเพลง</button>
-        </div>
-        
-        <div class="top-media-section">
-            <div class="media-box">
-                <h3>📺 บทเรียนต้นแบบ (YouTube Player)</h3>
-                <div class="video-wrapper">
-                    <div id="yt-player"></div>
-                </div>
-            </div>
-
-        <div class="progress-row">
-            <span id="current-time-text" class="progress-time">0:00</span>
-            <input type="range" id="custom-progress" min="0" max="100" value="0" step="0.1" />
-            <span id="duration-text" class="progress-time">0:00</span>
-        </div>
-
-        </div>
-
-        <div class="control-bar">
-            <div class="controls-left">
-                <label for="song-select" style="font-weight:bold;">เลือกเพลงซิงค์ระบบคลาวด์:</label>
-                <select id="song-select" class="text-black bg-white font-normal">
-                    <option value="die_with_a_smile">Die With A Smile - Bruno Mars & Lady Gaga</option>
-                </select>
-                <button id="play-btn" disabled>▶ เล่นเพลง</button>
-            </div>
-            <div class="time-display" id="time-text">00:00 / 00:00</div>
-        </div>
-
-        <div class="timeline-section">
-            <h3 style="margin-top: 0; font-size: 16px; color: #aaa;" id="timeline-title">🎵 แถบจังหวะและคอร์ด</h3>
-            <div class="beat-count-display" id="beat-count-display"></div>
-            <div class="chord-timeline-scroll" id="chord-timeline"></div>
-            <div class="lyrics-bar" id="lyrics-display">🎤 กดปุ่มเล่นเพลงเพื่อเริ่มการซิงค์จังหวะดนตรี...</div>
-        </div>
-
+    <div id="new-user-setup" class="setup-card hidden" style="display:none;">
+        <h4>ผู้ใช้ใหม่ — เลือกเพลงจาก Firestore</h4>
+        <p>ระบบยังไม่พบประวัติการเลือกเพลงของคุณ กรุณาเลือกเพลงเพื่อเริ่มใช้งาน</p>
+        <select id="new-user-song-select" class="w-full mt-3 px-3 py-2 rounded-lg text-black"></select>
+        <button id="btn-confirm-song" class="mt-3 w-full py-2 bg-[#00B900] hover:bg-[#009900] text-white font-bold rounded-lg">ยืนยันเลือกเพลง</button>
     </div>
 
     <script type="module">
@@ -424,8 +435,8 @@
 
         // 🌟 ประกอบร่าง Engines ย่อยตามหลักการแยกโมดูล
         const uiEngine = new OCMUIEngine({
-            gridId: "chord-timeline",
-            lyricsId: "lyrics-display",
+            gridId: "beat-blocks-grid",
+            lyricsId: "lyrics-zone",
             beatCountId: "beat-count-display"
         });
 
@@ -441,6 +452,8 @@
             () => {
                 uiEngine.resetDisplays();
                 playBtn.innerText = "▶ เล่นเพลง";
+                // เมื่อเพลงจบ ให้รีเซ็ต overlay กลับมา
+                try { resetMirrorOverlay(); } catch (e) {}
             },
             (errorCode, videoId) => {
                 statusText.innerText = `ไม่สามารถเปิดวิดีโอ YouTube จากรหัส ${videoId} ได้ ระบบจะใช้วิดีโอทดสอบแทน`;
@@ -659,10 +672,84 @@
             }
         });
 
+        const mirrorOverlay = document.getElementById('mirror-overlay');
+        const countDisplay = document.getElementById('count-display');
+
+        function playClickSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = 'square';
+                o.frequency.value = 1000;
+                g.gain.value = 0.0001;
+                o.connect(g);
+                g.connect(ctx.destination);
+                const now = ctx.currentTime;
+                g.gain.setValueAtTime(0.0001, now);
+                g.gain.exponentialRampToValueAtTime(0.15, now + 0.001);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+                o.start(now);
+                o.stop(now + 0.13);
+            } catch (e) { /* ignore audio errors */ }
+        }
+
+        function startSmartCountIn() {
+            const bpm = Number(songData?.bpm ?? 120);
+            const beatDuration = (60 / bpm) * 1000;
+            let currentBeat = 1;
+
+            // แสดงตัวเลขตัวแรก และเล่นเสียงเคาะ
+            if (countDisplay) {
+                countDisplay.classList.remove('hidden');
+                countDisplay.innerText = String(currentBeat);
+            }
+            playClickSound();
+
+            const countInterval = setInterval(() => {
+                currentBeat++;
+                if (currentBeat <= 4) {
+                    if (countDisplay) countDisplay.innerText = String(currentBeat);
+                    playClickSound();
+                } else {
+                    clearInterval(countInterval);
+                    // ซ่อน overlay ทั้งหมด เพื่อให้กระจกโล่ง
+                    try {
+                        if (countDisplay) countDisplay.classList.add('hidden');
+                        if (mirrorOverlay) mirrorOverlay.classList.add('hidden');
+                    } catch (e) {}
+                    // เริ่มเล่นวิดีโอและแถบคอร์ด
+                    try {
+                        if (audioEngine) audioEngine.play();
+                        window.requestAnimationFrame(syncProgressUi);
+                    } catch (e) {}
+                }
+            }, beatDuration);
+        }
+
+        function resetMirrorOverlay() {
+            try {
+                if (mirrorOverlay) mirrorOverlay.classList.remove('hidden');
+                if (countDisplay) countDisplay.classList.add('hidden');
+                if (playBtn) playBtn.classList.remove('hidden');
+            } catch (e) {}
+        }
+
         playBtn.addEventListener('click', () => {
+            // ถ้า overlay มองเห็น ให้ทำ count-in ก่อนเล่น
+            if (mirrorOverlay && !mirrorOverlay.classList.contains('hidden')) {
+                // ซ่อนปุ่มเพื่อให้ตัวเลขเด่น
+                playBtn.classList.add('hidden');
+                startSmartCountIn();
+                return;
+            }
+
+            // ถ้า overlay ถูกซ่อนแล้ว ให้ทำการ toggle เล่น/หยุดตามปกติ
             if (audioEngine.isPlaying) {
                 audioEngine.pause();
                 playBtn.innerText = "▶ เล่นเพลง";
+                // คืน overlay เมื่อหยุด
+                resetMirrorOverlay();
             } else {
                 audioEngine.play();
                 playBtn.innerText = "⏸ หยุดชั่วคราว";
