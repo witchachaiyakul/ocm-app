@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCM - Orff Construct Mirror (Beat Edition)</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { color: #00adb5; margin-bottom: 5px; }
+        .control-panel {
+            background: #1e1e1e;
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        select, button {
+            background-color: #00adb5;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: #007a80; }
+        button:disabled { background-color: #444; cursor: not-allowed; }
+        
+        .container { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1000px; }
+        .mirror-box, .workspace-box {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            flex: 1;
+            min-width: 350px;
+        }
+        video { transform: scaleX(-1); border-radius: 8px; background: #222; width: 100%; max-width: 400px; }
+        
+        /* 🌟 สไตล์ระบบตารางกริดจังหวะ (Music Grid System เหมือนในวิดีโอ) */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr); /* แบ่งเป็นแถวละ 8 บีต (2 ห้องเพลง) */
+            gap: 8px;
+            margin: 20px 0;
+            background: #151515;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .grid-block {
+            background: #2d2d2d;
+            border: 2px solid #3d3d3d;
+            height: 60px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #888;
+            transition: all 0.1s ease;
+        }
+        .grid-block.has-chord { color: #00adb5; font-size: 16px; }
+        .grid-block.active {
+            background: #00adb5;
+            color: #fff;
+            border-color: #fff;
+            box-shadow: 0 0 10px #00adb5;
+            transform: scale(1.05);
+        }
+
+        #chord-display { font-size: 72px; font-weight: bold; color: #ffde59; margin: 10px 0; }
+        #lyrics-display { font-size: 22px; color: #ffffff; background: #252525; padding: 15px; border-radius: 6px; min-height: 30px; }
+        #status { color: #ffde59; font-style: italic; margin-bottom: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>OCM: Orff Construct Mirror</h1>
+    <p id="status">กำลังดึงข้อมูลระบบจาก Cloud...</p>
+
+    <div class="control-panel">
+        <label>เลือกเพลงจากระบบคลาวด์:</label>
+        <select id="song-select">
+            <option value="die_with_a_smile">Die With A Smile - Bruno Mars</option>
+        </select>
+        <button id="start-btn" disabled>เริ่มฝึกซ้อมดนตรี</button>
+    </div>
+
+    <div class="container">
+        <div class="mirror-box">
+            <h3>👁️ Visual Mirror</h3>
+            <video id="webcam" autoplay playsinline></video>
+        </div>
+
+        <div class="workspace-box">
+            <h3>🎵 แผงควบคุมจังหวะ (Beat Blocks)</h3>
+            
+            <div class="grid-container" id="music-grid"></div>
+
+            <div id="chord-display">--</div>
+            <p id="lyrics-display">กดปุ่มเริ่มฝึกซ้อมเพื่อรันจังหวะ</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as Tone from "https://esm.sh/tone";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // ⚠️ สำคัญมาก: เปลี่ยนเป็น Config โครงการของคุณตรงนี้ครับ
+        const firebaseConfig = {
+            apiKey: "AIzaSy...",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "...",
+            appId: "..."
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Elements
+        const statusText = document.getElementById('status');
+        const startBtn = document.getElementById('start-btn');
+        const songSelect = document.getElementById('song-select');
+        const musicGrid = document.getElementById('music-grid');
+        const chordDisplay = document.getElementById('chord-display');
+        const lyricsDisplay = document.getElementById('lyrics-display');
+
+        let songData = null;
+        let blockElements = [];
+
+        // ฟังก์ชันเปิดกล้องเว็บแคม (Visual Mirror)
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('webcam').srcObject = stream;
+                statusText.innerText = "ระบบกล้องเว็บแคมเชื่อมต่อสำเร็จ";
+                startBtn.disabled = false;
+            } catch (err) {
+                statusText.innerText = "กรุณาเปิดเซิร์ฟเวอร์ Localhost เพื่ออนุญาตสิทธิ์กล้อง: " + err.message;
+            }
+        }
+
+        // 🤖 ฟังก์ชันดึงข้อมูลแบบจังหวะ และ สั่งวาดกล่องตารางกริด (Constructionism UI)
+        async function loadSongFromCloud() {
+            const songId = songSelect.value;
+            statusText.innerText = "กำลังซิงค์โครงสร้างข้อมูลจังหวะดนตรี...";
+            
+            try {
+                const docRef = doc(db, "songs", songId);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    songData = docSnap.data();
+                    statusText.innerText = `โหลดเพลง "${songData.title}" สำเร็จ! (BPM: ${songData.bpm})`;
+                    
+                    // วาดกล่องตารางกริด (Beat Blocks) ตามจำนวนบีตทั้งหมดของเพลง
+                    renderMusicGrid(songData);
+                    startBtn.disabled = false;
+                } else {
+                    statusText.innerText = "ไม่พบเพลงนี้ใน Firestore คลาวด์";
+                }
+            } catch (e) {
+                statusText.innerText = "ข้อผิดพลาดในการดึงข้อมูล: " + e.message;
+            }
+        }
+
+        // ฟังก์ชันสร้างกล่องสี่เหลี่ยมตามจังหวะเคาะ
+        function renderMusicGrid(data) {
+            musicGrid.innerHTML = ""; // ล้างหน้าจอเก่า
+            blockElements = [];
+            
+            // วนลูปวาดกล่องตามจำนวนบีตทั้งหมด (เช่น 32 บีต ก็วาด 32 กล่อง)
+            for (let i = 0; i < data.totalBeats; i++) {
+                const block = document.createElement('div');
+                block.className = 'grid-block';
+                block.innerText = i + 1; // แสดงหมายเลขจังหวะ 1, 2, 3...
+                
+                // ตรวจเช็กว่าบีตนี้มีคอร์ดบันทึกไว้ไหม ถ้ามีให้ดึงชื่อคอร์ดมาแสดงบนกล่อง
+                const chordMatch = data.chordsTimeline.find(item => item.beat === i);
+                if (chordMatch) {
+                    block.classList.add('has-chord');
+                    block.innerText = chordMatch.chord;
+                }
+                
+                musicGrid.appendChild(block);
+                blockElements.push(block); // บันทึกอิลิเมนต์เก็บไว้เปลี่ยนสีตอนเล่น
+            }
+        }
+
+        // 🎵 ฟังก์ชันรันจังหวะดนตรีและแสงไฮไลท์อัจฉริยะ (Orff Audio Clock Engine)
+        async function startPractice() {
+            if (!songData) return;
+            
+            // สั่งเปิดระบบเสียงของเบราว์เซอร์
+            await Tone.start();
+            startBtn.disabled = true;
+            
+            // 1. ตั้งค่าความเร็วเพลง (BPM) ไปที่ตัวนับจังหวะสากลของ Tone.js
+            Tone.Transport.bpm.value = songData.bpm;
+            
+            // 2. สร้างเสียงเคาะเมโทรนอมสังเคราะห์ (เสียงปี๊บนำทางจังหวะให้เด็ก)
+            const clickSound = new Tone.Synth().toDestination();
+            
+            // สร้าง Loop เคาะทุกๆ 1 บีต (หรือโน้ตตัวดำ 4n)
+            const drumLoop = new Tone.Loop((time) => {
+                // คำนวณหาตำแหน่งบีตปัจจุบันแบบ Real-time จากเวลาของระบบเสียง
+                // สูตรคณิตศาสตร์ดนตรี: บีตปัจจุบัน = เวลาวินาที * (BPM / 60)
+                let currentBeat = Math.floor(Tone.Transport.seconds * (songData.bpm / 60));
+                
+                if (currentBeat >= songData.totalBeats) {
+                    stopSession();
+                    return;
+                }
+
+                // สั่งทำเสียงบีตตก (บีตแรกของห้องให้เสียงสูง บีตอื่นให้เสียงต่ำตามหลัก Orff)
+                if (currentBeat % 4 === 0) {
+                    clickSound.triggerAttackRelease("E5", "8n", time);
+                } else {
+                    clickSound.triggerAttackRelease("C5", "8n", time);
+                }
+
+                // 3. ปรับปรุงการแสดงผลแสงไฮไลท์และข้อความบนหน้าจอ
+                updateVisuals(currentBeat);
+
+            }, "4n").start(0);
+
+            // เริ่มต้นระบบนาฬิกา
+            Tone.Transport.start();
+        }
+
+        // ฟังก์ชันอัปเดตแสงไฟบนตารางกริดและข้อความเนื้อร้อง
+        function updateVisuals(currentBeat) {
+            // ล้างสถานะไฮไลท์สีฟ้าของกล่องเดิมออกทั้งหมด
+            blockElements.forEach(el => el.classList.remove('active'));
+            
+            // เติมสีฟ้าไฮไลท์สว่างวาบที่กล่องบีตปัจจุบัน
+            if (blockElements[currentBeat]) {
+                blockElements[currentBeat].classList.add('active');
+                
+                // เลื่อนหน้าจอตารางกริดลงมาอัตโนมัติหากแถวเพลงยาว (Auto-scroll)
+                blockElements[currentBeat].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // ค้นหาคอร์ดล่าสุดที่จังหวะวิ่งไปถึง
+            let activeChord = "--";
+            for (let i = 0; i < songData.chordsTimeline.length; i++) {
+                if (currentBeat >= songData.chordsTimeline[i].beat) {
+                    activeChord = songData.chordsTimeline[i].chord;
+                }
+            }
+            chordDisplay.innerText = activeChord;
+
+            // ค้นหาเนื้อร้องที่ล็อกอยู่ช่วงบีตนี้
+            const activeLyrics = songData.lyricsTimeline.find(
+                item => currentBeat >= item.startBeat && currentBeat <= item.endBeat
+            );
+            lyricsDisplay.innerText = activeLyrics ? activeLyrics.text : "🎤 (ดนตรีบรรเลง)";
+        }
+
+        function stopSession() {
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+            chordDisplay.innerText = "จบการฝึก";
+            lyricsDisplay.innerText = "ทบทวนการเคลื่อนไหวร่างกายจากกระจกเงาได้เลยครับ!";
+            startBtn.disabled = false;
+        }
+
+        // ผูกอีเวนต์สั่งงาน
+        startBtn.addEventListener('click', startPractice);
+        
+        // รันระบบ
+        setupWebcam();
+        loadSongFromCloud();
+    </script>
+</body>
+</html>

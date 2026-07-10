@@ -1,0 +1,16 @@
+{
+  "name": "ocm-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "upload.js",
+  "scripts": {
+  "start": "npx serve .",
+  "upload": "node upload.js"
+},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase-admin": "^14.1.0"
+  }
+}
