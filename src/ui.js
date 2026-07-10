@@ -10,6 +10,7 @@ export class OCMUIEngine {
 
     // สร้างเส้นทางกริดคอร์ดแบบแถวยาวแนวนอนต่อเนื่อง (Scrollable Path)
     renderGrid(songData) {
+        if (!this.gridContainer) return;
         this.gridContainer.innerHTML = "";
         this.blockElements = [];
         this.renderBeatCount(songData);
@@ -130,11 +131,13 @@ export class OCMUIEngine {
         const fallbackLyrics = songData.lyricsTimeline.find(
             item => currentBeat >= item.startBeat && currentBeat <= item.endBeat
         );
-        this.lyricsDisplay.innerText = lyricText || (fallbackLyrics ? fallbackLyrics.text : "🎤 (ช่วงดนตรีบรรเลง/Solo)");
+        if (this.lyricsDisplay) {
+            this.lyricsDisplay.innerText = lyricText || (fallbackLyrics ? fallbackLyrics.text : "🎤 (ช่วงดนตรีบรรเลง/Solo)");
+        }
     }
 
     resetDisplays() {
-        this.lyricsDisplay.innerText = "จบกระบวนการฝึกซ้อมเรียบร้อยแล้ว!";
+        if (this.lyricsDisplay) this.lyricsDisplay.innerText = "จบกระบวนการฝึกซ้อมเรียบร้อยแล้ว!";
         this.blockElements.forEach(el => el && el.classList.remove('active'));
         this.countPills.forEach(pill => pill.classList.remove('active'));
         if (this.countPills[0]) this.countPills[0].classList.add('active');
