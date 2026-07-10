@@ -102,9 +102,13 @@
 
     <div class="container">
         <div class="mirror-box">
-            <h3>👁️ Visual Mirror</h3>
-            <video id="webcam" autoplay playsinline></video>
-        </div>
+    <h3>👁️ Visual Mirror (กระจกเงาโต้ตอบอัจฉริยะ)</h3>
+    <div style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; aspect-ratio: 4/3;">
+        <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+        
+        <canvas id="output-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 12px; background: #222; transform: scaleX(-1); border: 2px solid #3d3d3d;"></canvas>
+    </div>
+</div>
 
         <div class="workspace-box">
             <h3>🎵 แผงควบคุมจังหวะ (Beat Blocks)</h3>
@@ -115,12 +119,13 @@
     </div>
 
     <script type="module">
-        // 🌟 เรียกใช้โมดูลแผงควบคุมจังหวะที่แยกไว้พัฒนาเฉพาะทาง
+        // 🌟 1. นำเข้าโมดูลทั้งหมดที่ต้องใช้ให้ครบ
+        import { OCMVisualEngine } from "./src/mirror.js";
         import { OCMAudioEngine } from "./src/audio.js";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        // คีย์โปรเจกต์ของโครงการคุณครูอย่างถูกต้องแม่นยำ
+        // 🌟 2. ตั้งค่า Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCxvHXLgdb5FeQS1mW2d4ke9kjdz-i1e54",
             authDomain: "ocm-kbs.firebaseapp.com",
@@ -129,10 +134,10 @@
             messagingSenderId: "632841277737",
             appId: "1:632841277737:web:20735a0544bc3b759d6738"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        // 🌟 3. เชื่อมต่อ UI Elements
         const statusText = document.getElementById('status');
         const startBtn = document.getElementById('start-btn');
         const songSelect = document.getElementById('song-select');
@@ -143,20 +148,19 @@
         let songData = null;
         let blockElements = [];
 
-        async function setupWebcam() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('webcam').srcObject = stream;
-                statusText.innerText = "ระบบกล้องเว็บแคมเชื่อมต่อสำเร็จ";
-                startBtn.disabled = false;
-            } catch (err) {
-                statusText.innerText = "กรุณาเปิดเซิร์ฟเวอร์ Localhost เพื่ออนุญาตสิทธิ์กล้อง: " + err.message;
-            }
-        }
+        // 🌟 4. เตรียมเครื่องยนต์สายตา (Visual Engine) จาก mirror.js
+        const visual = new OCMVisualEngine("webcam", "output-canvas");
 
+        // 🌟 5. เตรียมเครื่องยนต์เสียง (Audio Engine) จาก audio.js
+        const audio = new OCMAudioEngine(
+            (currentBeat) => updateVisuals(currentBeat),
+            () => stopSession()
+        );
+
+        // 🌟 6. ฟังก์ชันจัดการข้อมูลและ UI (ส่วนที่เหลือใน index)
         async function loadSongFromCloud() {
             const songId = songSelect.value;
-            statusText.innerText = "กำลังซิงค์โครงสร้างข้อมูลจังหวะดนตรี...";
+            statusText.innerText = "กำลังซิงค์ข้อมูลเพลงและจังหวะดนตรี...";
             
             try {
                 const docRef = doc(db, "songs", songId);
@@ -164,21 +168,20 @@
                 
                 if (docSnap.exists()) {
                     songData = docSnap.data();
-                    statusText.innerText = `โหลดเพลง "${songData.title}" สำเร็จ! (BPM: ${songData.bpm})`;
+                    statusText.innerText = `พร้อมฝึกซ้อม! "${songData.title}" (BPM: ${songData.bpm})`;
                     renderMusicGrid(songData);
                     startBtn.disabled = false;
                 } else {
-                    statusText.innerText = "ไม่พบเพลงนี้ใน Firestore คลาวด์";
+                    statusText.innerText = "ไม่พบเพลงนี้ในฐานข้อมูล";
                 }
             } catch (e) {
-                statusText.innerText = "ข้อผิดพลาดในการดึงข้อมูล: " + e.message;
+                statusText.innerText = "ข้อผิดพลาด: " + e.message;
             }
         }
 
         function renderMusicGrid(data) {
             musicGrid.innerHTML = "";
             blockElements = [];
-            
             for (let i = 0; i < data.totalBeats; i++) {
                 const block = document.createElement('div');
                 block.className = 'grid-block';
@@ -195,18 +198,12 @@
             }
         }
 
-        // 🌟 เรียกประกอบร่างเข้ากับ Engine เสียงที่เราแยกไว้ในโมดูลย่อย
-        const audio = new OCMAudioEngine(
-            (currentBeat) => updateVisuals(currentBeat),
-            () => stopSession()
-        );
-
         function updateVisuals(currentBeat) {
             blockElements.forEach(el => el.classList.remove('active'));
-            
             if (blockElements[currentBeat]) {
                 blockElements[currentBeat].classList.add('active');
-                blockElements[currentBeat].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // เปลี่ยน smooth เป็น auto เพื่อไม่ให้หน้าจอกระตุกตามที่แนะนำไปครับ
+                blockElements[currentBeat].scrollIntoView({ behavior: 'auto', block: 'nearest' });
             }
 
             let activeChord = "--";
@@ -225,7 +222,7 @@
 
         function stopSession() {
             chordDisplay.innerText = "จบการฝึก";
-            lyricsDisplay.innerText = "ทบทวนการเคลื่อนไหวร่างกายจากกระจกเงาได้เลยครับ!";
+            lyricsDisplay.innerText = "ทบทวนการเคลื่อนไหวจากกระจกเงาได้เลยครับ!";
             startBtn.disabled = false;
         }
 
@@ -235,9 +232,23 @@
                 audio.start(songData.bpm, songData.totalBeats);
             }
         });
-        
-        setupWebcam();
-        loadSongFromCloud();
+
+        // 🌟 7. ฟังก์ชันตัวจุดระเบิดระบบ (Bootstrap)
+        async function bootstrap() {
+            try {
+                // เปิดกล้องและ Canvas ผ่านโมดูล mirror.js (ฟังก์ชันเดียวจบ ไม่มีซ้ำซ้อนแล้ว)
+                await visual.init();
+                
+                // โหลดข้อมูลเพลง
+                await loadSongFromCloud();
+            } catch(err) {
+                console.error(err);
+                statusText.innerText = "เกิดข้อผิดพลาดในการเปิดระบบ: " + err.message;
+            }
+        }
+
+        // เริ่มต้นรันระบบเมื่อเปิดหน้าเว็บ
+        bootstrap();
     </script>
 </body>
 </html>
