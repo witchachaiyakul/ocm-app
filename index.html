@@ -3,251 +3,373 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCM - Orff Construct Mirror (Beat Edition)</title>
+    <title>OCM - Orff Construct Mirror (Die With A Smile Edition)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
+        :root {
+            --primary-color: #00adb5;
+            --primary-hover: #007a80;
+            --bg-dark: #121212;
+            --panel-bg: #1e1e1e;
+            --active-block: #ffde59;
+        }
+
         body {
-            background-color: #121212;
+            background-color: var(--bg-dark);
             color: #ffffff;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
-            margin: 0;
         }
-        h1 { color: #00adb5; margin-bottom: 5px; }
-        .control-panel {
-            background: #1e1e1e;
-            padding: 15px 25px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+
+        h1 { color: var(--primary-color); margin: 0 0 5px 0; font-size: 24px; }
+        #status { color: #ffde59; font-style: italic; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
+
+        .main-layout {
             display: flex;
-            gap: 15px;
-            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 1100px;
         }
+
+        /* ส่วนบน: วิดีโอและกระจกเงาเคียงข้างกัน */
+        .top-media-section {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .media-box {
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            flex: 1;
+            min-width: 320px;
+            max-width: 520px;
+            text-align: center;
+        }
+
+        .media-box h3 { margin-top: 0; margin-bottom: 10px; font-size: 16px; color: #ccc; }
+        
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #yt-player { width: 100%; height: 100%; border: none; }
+        
+        #output-canvas {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            background: #222;
+        }
+
+        /* ส่วนแถบควบคุมตรงกลาง */
+        .control-bar {
+            background: var(--panel-bg);
+            padding: 12px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+            width: 100%;
+            max-width: 1100px;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+
+        .controls-left { display: flex; align-items: center; gap: 15px; }
+        
         select, button {
-            background-color: #00adb5;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 10px 18px;
-            font-size: 16px;
+            padding: 10px 20px;
+            font-size: 15px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
+            transition: background 0.2s;
         }
-        button:hover { background-color: #007a80; }
+        button:hover { background-color: var(--primary-hover); }
         button:disabled { background-color: #444; cursor: not-allowed; }
-        
-        .container { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1000px; }
-        .mirror-box, .workspace-box {
-            background: #1e1e1e;
+
+        .time-display { font-family: monospace; font-size: 16px; color: #aaa; }
+
+        /* ส่วนล่าง: แผงควบคุมคอร์ดและตัวโน้ตแนวนอน (Chordify Style) */
+        .timeline-section {
+            background: var(--panel-bg);
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            text-align: center;
-            flex: 1;
-            min-width: 350px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            width: 100%;
+            max-width: 1100px;
+            box-sizing: border-box;
         }
-        video { transform: scaleX(-1); border-radius: 8px; background: #222; width: 100%; max-width: 400px; }
-        
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 8px;
-            margin: 20px 0;
+
+        .chord-timeline-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 6px;
+            padding: 15px 5px;
             background: #151515;
-            padding: 10px;
             border-radius: 8px;
+            scroll-behavior: smooth;
         }
-        .grid-block {
-            background: #2d2d2d;
-            border: 2px solid #3d3d3d;
-            height: 60px;
+
+        .chord-timeline-scroll::-webkit-scrollbar { height: 8px; }
+        .chord-timeline-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+        .beat-block {
+            flex: 0 0 80px;
+            height: 80px;
+            background: #262626;
+            border: 2px solid #3a3a3a;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
-            font-weight: bold;
-            font-size: 14px;
-            color: #888;
-            transition: all 0.1s ease;
-        }
-        .grid-block.has-chord { color: #00adb5; font-size: 16px; }
-        .grid-block.active {
-            background: #00adb5;
-            color: #fff;
-            border-color: #fff;
-            box-shadow: 0 0 10px #00adb5;
-            transform: scale(1.05);
+            padding: 6px;
+            box-sizing: border-box;
+            transition: all 0.15s ease;
         }
 
-        #chord-display { font-size: 72px; font-weight: bold; color: #ffde59; margin: 10px 0; }
-        #lyrics-display { font-size: 22px; color: #ffffff; background: #252525; padding: 15px; border-radius: 6px; min-height: 30px; }
-        #status { color: #ffde59; font-style: italic; margin-bottom: 15px; font-weight: bold; }
+        .beat-block .beat-num { font-size: 11px; color: #666; width: 100%; text-align: left; }
+        .beat-block .chord-name { font-size: 16px; font-weight: bold; color: #555; }
+        
+        .beat-block.has-chord { border-color: #444; background: #2d2d2d; }
+        .beat-block.has-chord .chord-name { color: #ffde59; font-size: 18px; }
+
+        .beat-block.active {
+            background: var(--primary-color);
+            border-color: #fff;
+            transform: scale(1.02);
+            box-shadow: 0 0 12px rgba(0, 173, 181, 0.6);
+        }
+        .beat-block.active .beat-num { color: #fff; }
+        .beat-block.active .chord-name { color: #000; }
+
+        .lyrics-bar {
+            margin-top: 15px;
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 500;
+            min-height: 28px;
+            border-left: 5px solid var(--primary-color);
+        }
     </style>
 </head>
 <body>
 
     <h1>OCM: Orff Construct Mirror</h1>
-    <p id="status">กำลังดึงข้อมูลระบบจาก Cloud...</p>
+    <p id="status">กรุณาเข้าสู่ระบบผ่านคลาวด์...</p>
 
-    <div class="control-panel">
-        <label>เลือกเพลงจากระบบคลาวด์:</label>
-        <select id="song-select">
-            <option value="die_with_a_smile">Die With A Smile - Bruno Mars</option>
-        </select>
-        <button id="start-btn" disabled>เริ่มฝึกซ้อมดนตรี</button>
-    </div>
-
-    <div class="container">
-        <div class="mirror-box">
-    <h3>👁️ Visual Mirror (กระจกเงาโต้ตอบอัจฉริยะ)</h3>
-    <div style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; aspect-ratio: 4/3;">
-        <video id="webcam" autoplay playsinline muted style="display: none;"></video>
-        
-        <canvas id="output-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 12px; background: #222; transform: scaleX(-1); border: 2px solid #3d3d3d;"></canvas>
-    </div>
-</div>
-
-        <div class="workspace-box">
-            <h3>🎵 แผงควบคุมจังหวะ (Beat Blocks)</h3>
-            <div class="grid-container" id="music-grid"></div>
-            <div id="chord-display">--</div>
-            <p id="lyrics-display">กดปุ่มเริ่มฝึกซ้อมเพื่อรันจังหวะ</p>
+    <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl w-full max-w-sm text-center shadow-2xl">
+            <h2 class="text-2xl font-bold text-white mb-6">ยินดีต้อนรับสู่ OCM</h2>
+            <p class="text-slate-400 mb-8 text-sm">ล็อกอินเพื่อเข้าสู่ห้องซ้อมและประวัติการซ้อมของคุณ</p>
+            
+            <button id="btn-mock-login" class="w-full py-3 bg-[#00B900] hover:bg-[#009900] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all">
+                <i class="ph-bold ph-line-logo text-xl"></i> ล็อกอินด้วย LINE (จำลอง)
+            </button>
         </div>
     </div>
 
+    <div id="main-dashboard" class="hidden main-layout">
+        
+        <div class="top-media-section">
+            <div class="media-box">
+                <h3>📺 บทเรียนต้นแบบ (YouTube Player)</h3>
+                <div class="video-wrapper">
+                    <div id="yt-player"></div>
+                </div>
+            </div>
+
+            <div class="media-box">
+                <h3>👁️ กระจกโต้ตอบการเคลื่อนไหว (Visual Mirror)</h3>
+                <div class="video-wrapper">
+                    <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+                    <canvas id="output-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-bar">
+            <div class="controls-left">
+                <label for="song-select" style="font-weight:bold;">เลือกเพลงซิงค์ระบบคลาวด์:</label>
+                <select id="song-select" class="text-black bg-white font-normal">
+                    <option value="die_with_a_smile">Die With A Smile - Bruno Mars & Lady Gaga</option>
+                </select>
+                <button id="play-btn" disabled>▶ เล่นเพลง</button>
+            </div>
+            <div class="time-display" id="time-text">00:00 / 00:00</div>
+        </div>
+
+        <div class="timeline-section">
+            <h3 style="margin-top: 0; font-size: 16px; color: #aaa;" id="timeline-title">🎵 แถบจังหวะและคอร์ด</h3>
+            <div class="chord-timeline-scroll" id="chord-timeline"></div>
+            <div class="lyrics-bar" id="lyrics-display">🎤 กดปุ่มเล่นเพลงเพื่อเริ่มการซิงค์จังหวะดนตรี...</div>
+        </div>
+
+    </div>
+
     <script type="module">
-        // 🌟 1. นำเข้าโมดูลทั้งหมดที่ต้องใช้ให้ครบ
+        // 🌟 ย้าย Import ทั้งหมดขึ้นมาไว้บนสุดเพื่อป้องกันสโคปของตัวแปรพัง
+        import { db, fetchSongData } from "./src/firebase.js";
+        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { OCMVisualEngine } from "./src/mirror.js";
         import { OCMAudioEngine } from "./src/audio.js";
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { OCMUIEngine } from "./src/ui.js";
 
-        // 🌟 2. ตั้งค่า Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyCxvHXLgdb5FeQS1mW2d4ke9kjdz-i1e54",
-            authDomain: "ocm-kbs.firebaseapp.com",
-            projectId: "ocm-kbs",
-            storageBucket: "ocm-kbs.firebasestorage.app",
-            messagingSenderId: "632841277737",
-            appId: "1:632841277737:web:20735a0544bc3b759d6738"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-
-        // 🌟 3. เชื่อมต่อ UI Elements
+        const loginScreen = document.getElementById('login-screen');
+        const mainDashboard = document.getElementById('main-dashboard');
+        const btnMockLogin = document.getElementById('btn-mock-login');
+        
         const statusText = document.getElementById('status');
-        const startBtn = document.getElementById('start-btn');
+        const playBtn = document.getElementById('play-btn');
         const songSelect = document.getElementById('song-select');
-        const musicGrid = document.getElementById('music-grid');
-        const chordDisplay = document.getElementById('chord-display');
-        const lyricsDisplay = document.getElementById('lyrics-display');
+        const timeText = document.getElementById('time-text');
+        const timelineTitle = document.getElementById('timeline-title');
 
         let songData = null;
-        let blockElements = [];
 
-        // 🌟 4. เตรียมเครื่องยนต์สายตา (Visual Engine) จาก mirror.js
-        const visual = new OCMVisualEngine("webcam", "output-canvas");
+        // 🌟 ประกอบร่าง Engines ย่อยตามหลักการแยกโมดูล
+        const uiEngine = new OCMUIEngine({
+            gridId: "chord-timeline",
+            lyricsId: "lyrics-display"
+        });
 
-        // 🌟 5. เตรียมเครื่องยนต์เสียง (Audio Engine) จาก audio.js
-        const audio = new OCMAudioEngine(
-            (currentBeat) => updateVisuals(currentBeat),
-            () => stopSession()
+        const visualEngine = new OCMVisualEngine("webcam", "output-canvas");
+
+        const audioEngine = new OCMAudioEngine(
+            "yt-player", 
+            (currentBeat, currentTime, duration) => {
+                uiEngine.updateVisuals(currentBeat, songData);
+                timeText.innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+            },
+            () => {
+                uiEngine.resetDisplays();
+                playBtn.innerText = "▶ เล่นเพลง";
+            }
         );
 
-        // 🌟 6. ฟังก์ชันจัดการข้อมูลและ UI (ส่วนที่เหลือใน index)
-        async function loadSongFromCloud() {
-            const songId = songSelect.value;
-            statusText.innerText = "กำลังซิงค์ข้อมูลเพลงและจังหวะดนตรี...";
+        // 🌟 ฟังก์ชันจัดการจำลองการ Authentication ผ่านทาง LINE
+        btnMockLogin.addEventListener('click', async () => {
+            const mockLineId = "U123456789"; // จำลองค่ารับเข้าจากไลน์ API ในอนาคต
+            statusText.innerText = "กำลังตรวจสอบสิทธิ์ในฐานข้อมูลสหพันธ์...";
             
             try {
-                const docRef = doc(db, "songs", songId);
-                const docSnap = await getDoc(docRef);
+                const userDoc = await getDoc(doc(db, "users", mockLineId));
                 
-                if (docSnap.exists()) {
-                    songData = docSnap.data();
-                    statusText.innerText = `พร้อมฝึกซ้อม! "${songData.title}" (BPM: ${songData.bpm})`;
-                    renderMusicGrid(songData);
-                    startBtn.disabled = false;
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    
+                    // ปิดหน้าจอ Login และทำการเปลี่ยน State เป็นพื้นที่ Dashboard หลัก
+                    loginScreen.classList.add('hidden');
+                    mainDashboard.classList.remove('hidden');
+                    
+                    // ดึงและตั้งค่าบริบทเพลงเฉพาะของวงดนตรีนั้น
+                    await loadBandData(userData.bandId);
                 } else {
-                    statusText.innerText = "ไม่พบเพลงนี้ในฐานข้อมูล";
+                    alert("ไม่พบข้อมูลบัญชีรายชื่อนักเรียนนี้บนคลาวด์ โปรดสร้าง Document ID: U123456789 ใน Collection 'users' ก่อนครับ");
+                    statusText.innerText = "การยืนยันตัวตนล้มเหลว";
                 }
             } catch (e) {
-                statusText.innerText = "ข้อผิดพลาด: " + e.message;
-            }
-        }
-
-        function renderMusicGrid(data) {
-            musicGrid.innerHTML = "";
-            blockElements = [];
-            for (let i = 0; i < data.totalBeats; i++) {
-                const block = document.createElement('div');
-                block.className = 'grid-block';
-                block.innerText = i + 1;
-                
-                const chordMatch = data.chordsTimeline.find(item => item.beat === i);
-                if (chordMatch) {
-                    block.classList.add('has-chord');
-                    block.innerText = chordMatch.chord;
-                }
-                
-                musicGrid.appendChild(block);
-                blockElements.push(block);
-            }
-        }
-
-        function updateVisuals(currentBeat) {
-            blockElements.forEach(el => el.classList.remove('active'));
-            if (blockElements[currentBeat]) {
-                blockElements[currentBeat].classList.add('active');
-                // เปลี่ยน smooth เป็น auto เพื่อไม่ให้หน้าจอกระตุกตามที่แนะนำไปครับ
-                blockElements[currentBeat].scrollIntoView({ behavior: 'auto', block: 'nearest' });
-            }
-
-            let activeChord = "--";
-            for (let i = 0; i < songData.chordsTimeline.length; i++) {
-                if (currentBeat >= songData.chordsTimeline[i].beat) {
-                    activeChord = songData.chordsTimeline[i].chord;
-                }
-            }
-            chordDisplay.innerText = activeChord;
-
-            const activeLyrics = songData.lyricsTimeline.find(
-                item => currentBeat >= item.startBeat && currentBeat <= item.endBeat
-            );
-            lyricsDisplay.innerText = activeLyrics ? activeLyrics.text : "🎤 (ดนตรีบรรเลง)";
-        }
-
-        function stopSession() {
-            chordDisplay.innerText = "จบการฝึก";
-            lyricsDisplay.innerText = "ทบทวนการเคลื่อนไหวจากกระจกเงาได้เลยครับ!";
-            startBtn.disabled = false;
-        }
-
-        startBtn.addEventListener('click', () => {
-            if (songData) {
-                startBtn.disabled = true;
-                audio.start(songData.bpm, songData.totalBeats);
+                console.error(e);
+                statusText.innerText = "เกิดข้อผิดพลาดในการล็อกอิน: " + e.message;
             }
         });
 
-        // 🌟 7. ฟังก์ชันตัวจุดระเบิดระบบ (Bootstrap)
-        async function bootstrap() {
+        // ดึงข้อมูลการตั้งค่าบริบทวง (Band Context)
+        async function loadBandData(bandId) {
+            statusText.innerText = `กำลังดึงข้อมูลบริบทของวง: ${bandId}...`;
             try {
-                // เปิดกล้องและ Canvas ผ่านโมดูล mirror.js (ฟังก์ชันเดียวจบ ไม่มีซ้ำซ้อนแล้ว)
-                await visual.init();
-                
-                // โหลดข้อมูลเพลง
-                await loadSongFromCloud();
-            } catch(err) {
-                console.error(err);
-                statusText.innerText = "เกิดข้อผิดพลาดในการเปิดระบบ: " + err.message;
+                const bandDoc = await getDoc(doc(db, "bands", bandId));
+                if (bandDoc.exists()) {
+                    statusText.innerText = `ยินดีต้อนรับนักเรียนจากวง: ${bandDoc.data().bandName || bandId}`;
+                    // โหลดเพลงหลักจำลองของวงขึ้นมาแสดงผลต่อทันที
+                    await loadSongFromFirestore();
+                } else {
+                    statusText.innerText = `เชื่อมต่อสำเร็จ (เปิดโหมดจับคู่วงแบบอิสระ: ${bandId})`;
+                    await loadSongFromFirestore();
+                }
+            } catch (e) {
+                statusText.innerText = "Error loadBandData: " + e.message;
             }
         }
 
-        // เริ่มต้นรันระบบเมื่อเปิดหน้าเว็บ
+        // ดึงโครงสร้างข้อมูลของเนื้อเพลงและทางคอร์ดจาก Cloud Firestore
+        async function loadSongFromFirestore() {
+            playBtn.disabled = true;
+            statusText.innerText = "กำลังซิงค์ข้อมูลเพลงและตัวโน้ตกับคลาวด์...";
+            try {
+                const songId = songSelect.value;
+                songData = await fetchSongData(songId);
+                
+                statusText.innerText = `พร้อมทำการซ้อมเรียบร้อย! เพลง: "${songData.title}"`;
+                timelineTitle.innerText = `🎵 แถบจังหวะและคอร์ด - ${songData.title} (Time Signature: ${songData.timeSignature || '4/4'})`;
+                
+                // สั่งเรนเดอร์ตารางบล็อกแนวนอนสไตล์เลื่อนตาม
+                uiEngine.renderGrid(songData);
+                
+                // ดึงพิกัดวิดีโอ YouTube สำรองกรณีค่าฐานข้อมูลว่างอยู่
+                const ytId = songData.youtubeId || "EczwTVG96fM";
+                audioEngine.loadVideo(ytId, songData.bpm);
+                
+                playBtn.disabled = false;
+            } catch (err) {
+                statusText.innerText = "เกิดข้อผิดพลาดในการโหลดคอร์ดเพลง: " + err.message;
+            }
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "00:00";
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (audioEngine.isPlaying) {
+                audioEngine.pause();
+                playBtn.innerText = "▶ เล่นเพลง";
+            } else {
+                audioEngine.play();
+                playBtn.innerText = "⏸ หยุดชั่วคราว";
+            }
+        });
+
+        songSelect.addEventListener('change', loadSongFromFirestore);
+
+        // ฟังก์ชันเปิดระบบโดยเริ่มต้นจากอุปกรณ์มองเห็น (Visual Hardware Interface Only)
+        async function bootstrap() {
+            try {
+                await visualEngine.init(); 
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "เกิดข้อผิดพลาดในการเข้าถึงกล้องตรวจจับ: " + err.message;
+            }
+        }
+
         bootstrap();
     </script>
 </body>

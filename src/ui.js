@@ -1,26 +1,34 @@
 // src/ui.js
 export class OCMUIEngine {
-    constructor({ gridId, chordId, lyricsId }) {
+    constructor({ gridId, lyricsId }) {
         this.gridContainer = document.getElementById(gridId);
-        this.chordDisplay = document.getElementById(chordId);
         this.lyricsDisplay = document.getElementById(lyricsId);
         this.blockElements = [];
     }
 
-    // วาดกล่องตารางกริดตามจำนวนบีต
+    // สร้างเส้นทางกริดคอร์ดแบบแถวยาวแนวนอนต่อเนื่อง (Scrollable Path)
     renderGrid(songData) {
         this.gridContainer.innerHTML = "";
         this.blockElements = [];
         
         for (let i = 0; i < songData.totalBeats; i++) {
             const block = document.createElement('div');
-            block.className = 'grid-block';
-            block.innerText = i + 1;
+            block.className = 'beat-block';
+            
+            const numSpan = document.createElement('span');
+            numSpan.className = 'beat-num';
+            numSpan.innerText = i + 1;
+            block.appendChild(numSpan);
+
+            const chordSpan = document.createElement('span');
+            chordSpan.className = 'chord-name';
+            chordSpan.innerText = "•"; // จุดศูนย์กลางแสดงว่ายิงจังหวะคงเดิมอยู่
+            block.appendChild(chordSpan);
             
             const chordMatch = songData.chordsTimeline.find(item => item.beat === i);
             if (chordMatch) {
                 block.classList.add('has-chord');
-                block.innerText = chordMatch.chord;
+                chordSpan.innerText = chordMatch.chord;
             }
             
             this.gridContainer.appendChild(block);
@@ -28,31 +36,28 @@ export class OCMUIEngine {
         }
     }
 
-    // อัปเดตแถบแสงไฟและคำร้องแบบ Real-time
     updateVisuals(currentBeat, songData) {
-        this.blockElements.forEach(el => el.classList.remove('active'));
+        this.blockElements.forEach(el => el && el.classList.remove('active'));
         
         if (this.blockElements[currentBeat]) {
-            this.blockElements[currentBeat].classList.add('active');
-            this.blockElements[currentBeat].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const activeBlock = this.blockElements[currentBeat];
+            activeBlock.classList.add('active');
+            
+            // 🌟 ปรับคุณสมบัติเป็น 'auto' เพื่อล็อกหน้าจอดีดตามคอร์ดดนตรีสดได้ทันทีโดยไม่กระตุกค้าง
+            activeBlock.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
         }
-
-        let activeChord = "--";
-        for (let i = 0; i < songData.chordsTimeline.length; i++) {
-            if (currentBeat >= songData.chordsTimeline[i].beat) {
-                activeChord = songData.chordsTimeline[i].chord;
-            }
-        }
-        this.chordDisplay.innerText = activeChord;
 
         const activeLyrics = songData.lyricsTimeline.find(
             item => currentBeat >= item.startBeat && currentBeat <= item.endBeat
         );
-        this.lyricsDisplay.innerText = activeLyrics ? activeLyrics.text : "🎤 (ดนตรีบรรเลง)";
+        this.lyricsDisplay.innerText = activeLyrics ? activeLyrics.text : "🎤 (ช่วงดนตรีบรรเลง/Solo)";
     }
 
     resetDisplays() {
-        this.chordDisplay.innerText = "จบการฝึก";
-        this.lyricsDisplay.innerText = "ทบทวนการเคลื่อนไหวร่างกายจากกระจกเงาได้เลยครับ!";
+        this.lyricsDisplay.innerText = "จบกระบวนการฝึกซ้อมเรียบร้อยแล้ว!";
+        this.blockElements.forEach(el => el && el.classList.remove('active'));
+        if(this.blockElements[0]) {
+            this.blockElements[0].scrollIntoView({ behavior: 'smooth', inline: 'start' });
+        }
     }
 }

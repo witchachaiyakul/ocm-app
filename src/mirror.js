@@ -1,5 +1,4 @@
 // src/mirror.js
-
 export class OCMVisualEngine {
     constructor(videoId, canvasId) {
         this.video = document.getElementById(videoId);
@@ -8,23 +7,20 @@ export class OCMVisualEngine {
         this.stream = null;
         this.isTracking = false;
         
-        // จำลองค่ากิจกรรมการขยับตัว (Activity Levels) ตามแนวคิดของ AuraBand
+        // จำลองย่านประเมินกิจกรรมขยับร่างกาย (Activity Levels)
         this.activities = { zone1: 0, zone2: 0, zone3: 0 };
     }
 
-    // ฟังก์ชันเริ่มต้นกล้องและเซ็ตอัปแคนวาสแบบเรียลไทม์
     async init() {
-        if (!this.video || !this.canvas) throw new Error("ไม่พบโครงสร้าง UI ของกล้องหรือแคนวาส");
+        if (!this.video || !this.canvas) throw new Error("ไม่พบโครงสร้าง UI ของกล้องหรือแคนวาสใส");
 
-        // ขอสิทธิ์เปิดกล้อง (ตั้งค่าปิดเสียงเพื่อป้องกันเสียงหอนสะท้อนลูป)
         this.stream = await navigator.mediaDevices.getUserMedia({
             video: { width: 640, height: 480, facingMode: "user" },
-            audio: false
+            audio: false // ล็อกสิทธิ์เสียงเป็นเท็จป้องกันเครื่องหอนสะท้อนลูปดนตรี
         });
         
         this.video.srcObject = this.stream;
 
-        // รอจนกล้องโหลดมิติภาพเสร็จ แล้วตั้งขนาดกระดาษแคนวาสให้เท่ากันพอดีเป๊ะ
         this.video.onloadedmetadata = () => {
             this.canvas.width = this.video.videoWidth;
             this.canvas.height = this.video.videoHeight;
@@ -32,16 +28,15 @@ export class OCMVisualEngine {
         };
     }
 
-    // ระบบวาดเฟรมภาพเคลื่อนไหวความถี่สูง (Animation Frame Loop)
     startVisualLoop() {
         this.isTracking = true;
         const renderFrame = () => {
             if (!this.isTracking) return;
             
-            // 1. วาดสตรีมวิดีโอสดลงบนแผ่นแคนวาสเฟรมต่อเฟรม
+            // วาดภาพเคลื่อนไหวสดจากกล้องลงบนผิวหน้าของ Canvas
             this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
             
-            // 2. ดึงไอเดียวาดโครงสร้างแบ่ง 3 โซน (Vision Zones) จาก AuraBand
+            // วาดเส้นตารางจำลองโฮโลแกรมแบ่งเครื่องดนตรี 3 ส่วน (Vision Zones)
             this.drawInstrumentZones();
 
             requestAnimationFrame(renderFrame);
@@ -49,42 +44,39 @@ export class OCMVisualEngine {
         renderFrame();
     }
 
-    // ฟังก์ชันวาดเส้นกราฟิกจำลองและวิเคราะห์ตำแหน่งร่างกายเด็ก
     drawInstrumentZones() {
         const width = this.canvas.width;
         const height = this.canvas.height;
         const zoneWidth = width / 3;
 
         this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([6, 6]); // สั่งทำเส้นประแบบอินเตอร์แอคทีฟ
+        this.ctx.setLineDash([6, 6]); // ออกแบบเป็นลักษณะเส้นประโต้ตอบแบบอินเตอร์แอคทีฟ
 
-        // --- โซนที่ 1: ฝั่งซ้าย (ตัวอย่าง: โซนจับจังหวะกลอง/เคาะมือ) ---
-        this.ctx.strokeStyle = "rgba(251, 191, 36, 0.6)"; // สีเหลือง Amber
+        // โซนซ้าย: ตรวจจับจังหวะการตีกลุ่มกลอง/เครื่องกระทบ
+        this.ctx.strokeStyle = "rgba(251, 191, 36, 0.6)";
         this.ctx.strokeRect(0, 0, zoneWidth, height);
 
-        // --- โซนที่ 2: ฝั่งกลาง (ตัวอย่าง: โซนเครื่องลิ่มนิ้ว/คีย์บอร์ด) ---
-        this.ctx.strokeStyle = "rgba(56, 189, 248, 0.6)"; // สีฟ้า Sky
+        // โซนกลาง: ตรวจจับการทอดนิ้วมือเครื่องลิ่มนิ้ว Orff
+        this.ctx.strokeStyle = "rgba(56, 189, 248, 0.6)";
         this.ctx.strokeRect(zoneWidth, 0, zoneWidth, height);
 
-        // --- โซนที่ 3: ฝั่งขวา (ตัวอย่าง: โซนการเคลื่อนไหวของนักร้อง) ---
-        this.ctx.strokeStyle = "rgba(52, 211, 153, 0.6)"; // สีเขียว Emerald
+        // โซนขวา: ตรวจจับภาษาท่าทางและการขับร้อง
+        this.ctx.strokeStyle = "rgba(52, 211, 153, 0.6)";
         this.ctx.strokeRect(zoneWidth * 2, 0, zoneWidth, height);
 
-        // รีเซ็ตเส้นประกลับเป็นเส้นตรงปกติสำหรับวาดข้อความ
+        // ล้างรูปแบบเส้นประออกเพื่อพิมพ์หัวข้อ
         this.ctx.setLineDash([]);
         this.ctx.fillStyle = "#ffffff";
         this.ctx.font = "bold 14px Arial";
-        this.ctx.fillText("ZONE 1", 20, 30);
-        this.ctx.fillText("ZONE 2", zoneWidth + 20, 30);
-        this.ctx.fillText("ZONE 3", (zoneWidth * 2) + 20, 30);
+        this.ctx.fillText("ZONE 1 (Percussion)", 15, 30);
+        this.ctx.fillText("ZONE 2 (Melody)", zoneWidth + 15, 30);
+        this.ctx.fillText("ZONE 3 (Vocal/Performance)", (zoneWidth * 2) + 15, 30);
     }
 
-    // ฟังก์ชันสำหรับส่งค่าความเคลื่อนไหวออกไปให้ Engine ตัวอื่นใช้คำนวณคะแนน
     getZoneActivities() {
         return this.activities;
     }
 
-    // ปิดการทำงานเพื่อคืนทรัพยากรให้ระบบเครื่อง
     stop() {
         this.isTracking = false;
         if (this.stream) {

@@ -12,14 +12,29 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
-// ฟังก์ชันดึงข้อมูลเพลงตาม ID
+// 🌟 แก้ไขจุดบกพร่อง: ส่งออกตัวแปร db ให้ไฟล์ index.html ดึงข้อมูลสมาชิกผู้เรียนและคลาสเรียนได้
+export const db = getFirestore(app);
+
+// ฟังก์ชันดึงข้อมูลเพลงตาม Document ID
 export async function fetchSongData(songId) {
     const docRef = doc(db, "songs", songId);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
         return docSnap.data();
     }
-    throw new Error("ไม่พบข้อมูลเพลงนี้บนระบบ Cloud");
+    throw new Error("ไม่พบโครงสร้างข้อมูลเพลงนี้บนระบบ Cloud Firestore");
+}
+
+// ฟังก์ชันเสริมรองรับโครงสร้างขยายตัวดึงข้อมูลการจัดกลุ่มวงดนตรี
+export async function fetchBandSession(bandId, songId) {
+    const songRef = doc(db, "songs", songId);
+    const bandRef = doc(db, "bands", bandId, "settings", "current"); 
+    
+    const [songSnap, bandSnap] = await Promise.all([getDoc(songRef), getDoc(bandRef)]);
+    
+    return {
+        song: songSnap.exists() ? songSnap.data() : null,
+        bandSettings: bandSnap.exists() ? bandSnap.data() : null
+    };
 }
