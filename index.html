@@ -3,21 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCM - Orff Construct Mirror (Modular Edition)</title>
+    <title>OCM - Orff Construct Mirror (Beat Edition)</title>
     <style>
-        body { background-color: #121212; color: #ffffff; font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
         h1 { color: #00adb5; margin-bottom: 5px; }
-        .control-panel { background: #1e1e1e; padding: 15px 25px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
-        select, button { background-color: #00adb5; color: white; border: none; padding: 10px 18px; font-size: 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .control-panel {
+            background: #1e1e1e;
+            padding: 15px 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        select, button {
+            background-color: #00adb5;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
         button:hover { background-color: #007a80; }
         button:disabled { background-color: #444; cursor: not-allowed; }
+        
         .container { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1000px; }
-        .mirror-box, .workspace-box { background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-align: center; flex: 1; min-width: 350px; }
+        .mirror-box, .workspace-box {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            flex: 1;
+            min-width: 350px;
+        }
         video { transform: scaleX(-1); border-radius: 8px; background: #222; width: 100%; max-width: 400px; }
-        .grid-container { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin: 20px 0; background: #151515; padding: 10px; border-radius: 8px; }
-        .grid-block { background: #2d2d2d; border: 2px solid #3d3d3d; height: 60px; border-radius: 6px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: bold; font-size: 14px; color: #888; transition: all 0.1s ease; }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+            margin: 20px 0;
+            background: #151515;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .grid-block {
+            background: #2d2d2d;
+            border: 2px solid #3d3d3d;
+            height: 60px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #888;
+            transition: all 0.1s ease;
+        }
         .grid-block.has-chord { color: #00adb5; font-size: 16px; }
-        .grid-block.active { background: #00adb5; color: #fff; border-color: #fff; box-shadow: 0 0 10px #00adb5; transform: scale(1.05); }
+        .grid-block.active {
+            background: #00adb5;
+            color: #fff;
+            border-color: #fff;
+            box-shadow: 0 0 10px #00adb5;
+            transform: scale(1.05);
+        }
+
         #chord-display { font-size: 72px; font-weight: bold; color: #ffde59; margin: 10px 0; }
         #lyrics-display { font-size: 22px; color: #ffffff; background: #252525; padding: 15px; border-radius: 6px; min-height: 30px; }
         #status { color: #ffde59; font-style: italic; margin-bottom: 15px; font-weight: bold; }
@@ -26,7 +90,7 @@
 <body>
 
     <h1>OCM: Orff Construct Mirror</h1>
-    <p id="status">กำลังเริ่มต้นระบบย่อย...</p>
+    <p id="status">กำลังดึงข้อมูลระบบจาก Cloud...</p>
 
     <div class="control-panel">
         <label>เลือกเพลงจากระบบคลาวด์:</label>
@@ -41,74 +105,139 @@
             <h3>👁️ Visual Mirror</h3>
             <video id="webcam" autoplay playsinline></video>
         </div>
+
         <div class="workspace-box">
             <h3>🎵 แผงควบคุมจังหวะ (Beat Blocks)</h3>
             <div class="grid-container" id="music-grid"></div>
             <div id="chord-display">--</div>
-            <p id="lyrics-display">ระบบพร้อมทำงาน</p>
+            <p id="lyrics-display">กดปุ่มเริ่มฝึกซ้อมเพื่อรันจังหวะ</p>
         </div>
     </div>
 
     <script type="module">
-        import { fetchSongData } from "./src/firebase.js";
-        import { setupWebcam } from "./src/mirror.js";
-        import { OCMUIEngine } from "./src/ui.js";
+        // 🌟 เรียกใช้โมดูลแผงควบคุมจังหวะที่แยกไว้พัฒนาเฉพาะทาง
         import { OCMAudioEngine } from "./src/audio.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-        // DOM Elements
+        // คีย์โปรเจกต์ของโครงการคุณครูอย่างถูกต้องแม่นยำ
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxvHXLgdb5FeQS1mW2d4ke9kjdz-i1e54",
+            authDomain: "ocm-kbs.firebaseapp.com",
+            projectId: "ocm-kbs",
+            storageBucket: "ocm-kbs.firebasestorage.app",
+            messagingSenderId: "632841277737",
+            appId: "1:632841277737:web:20735a0544bc3b759d6738"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         const statusText = document.getElementById('status');
         const startBtn = document.getElementById('start-btn');
         const songSelect = document.getElementById('song-select');
+        const musicGrid = document.getElementById('music-grid');
+        const chordDisplay = document.getElementById('chord-display');
+        const lyricsDisplay = document.getElementById('lyrics-display');
 
         let songData = null;
+        let blockElements = [];
 
-        // Initialize UI Engine
-        const ui = new OCMUIEngine({
-            gridId: "music-grid",
-            chordId: "chord-display",
-            lyricsId: "lyrics-display"
-        });
-
-        // Initialize Audio Engine 
-        // เมื่อจังหวะขยับ (onBeat) ให้ส่งหมายเลขบีตไปบอก UI วาดแถบแสงไฟตาม
-        const audio = new OCMAudioEngine(
-            (currentBeat) => ui.updateVisuals(currentBeat, songData),
-            () => {
-                ui.resetDisplays();
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('webcam').srcObject = stream;
+                statusText.innerText = "ระบบกล้องเว็บแคมเชื่อมต่อสำเร็จ";
                 startBtn.disabled = false;
+            } catch (err) {
+                statusText.innerText = "กรุณาเปิดเซิร์ฟเวอร์ Localhost เพื่ออนุญาตสิทธิ์กล้อง: " + err.message;
             }
+        }
+
+        async function loadSongFromCloud() {
+            const songId = songSelect.value;
+            statusText.innerText = "กำลังซิงค์โครงสร้างข้อมูลจังหวะดนตรี...";
+            
+            try {
+                const docRef = doc(db, "songs", songId);
+                const docSnap = await getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    songData = docSnap.data();
+                    statusText.innerText = `โหลดเพลง "${songData.title}" สำเร็จ! (BPM: ${songData.bpm})`;
+                    renderMusicGrid(songData);
+                    startBtn.disabled = false;
+                } else {
+                    statusText.innerText = "ไม่พบเพลงนี้ใน Firestore คลาวด์";
+                }
+            } catch (e) {
+                statusText.innerText = "ข้อผิดพลาดในการดึงข้อมูล: " + e.message;
+            }
+        }
+
+        function renderMusicGrid(data) {
+            musicGrid.innerHTML = "";
+            blockElements = [];
+            
+            for (let i = 0; i < data.totalBeats; i++) {
+                const block = document.createElement('div');
+                block.className = 'grid-block';
+                block.innerText = i + 1;
+                
+                const chordMatch = data.chordsTimeline.find(item => item.beat === i);
+                if (chordMatch) {
+                    block.classList.add('has-chord');
+                    block.innerText = chordMatch.chord;
+                }
+                
+                musicGrid.appendChild(block);
+                blockElements.push(block);
+            }
+        }
+
+        // 🌟 เรียกประกอบร่างเข้ากับ Engine เสียงที่เราแยกไว้ในโมดูลย่อย
+        const audio = new OCMAudioEngine(
+            (currentBeat) => updateVisuals(currentBeat),
+            () => stopSession()
         );
 
-        // ดักฟังเหตุการณ์กดเล่นดนตรี
+        function updateVisuals(currentBeat) {
+            blockElements.forEach(el => el.classList.remove('active'));
+            
+            if (blockElements[currentBeat]) {
+                blockElements[currentBeat].classList.add('active');
+                blockElements[currentBeat].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            let activeChord = "--";
+            for (let i = 0; i < songData.chordsTimeline.length; i++) {
+                if (currentBeat >= songData.chordsTimeline[i].beat) {
+                    activeChord = songData.chordsTimeline[i].chord;
+                }
+            }
+            chordDisplay.innerText = activeChord;
+
+            const activeLyrics = songData.lyricsTimeline.find(
+                item => currentBeat >= item.startBeat && currentBeat <= item.endBeat
+            );
+            lyricsDisplay.innerText = activeLyrics ? activeLyrics.text : "🎤 (ดนตรีบรรเลง)";
+        }
+
+        function stopSession() {
+            chordDisplay.innerText = "จบการฝึก";
+            lyricsDisplay.innerText = "ทบทวนการเคลื่อนไหวร่างกายจากกระจกเงาได้เลยครับ!";
+            startBtn.disabled = false;
+        }
+
         startBtn.addEventListener('click', () => {
             if (songData) {
                 startBtn.disabled = true;
                 audio.start(songData.bpm, songData.totalBeats);
             }
         });
-
-        // ฟังก์ชันหลักรันระบบตอนเปิดแอป
-        async function bootstrap() {
-            try {
-                // 1. สั่งเปิดกล้องกระจกเงาคู่ขนาน
-                await setupWebcam("webcam");
-                statusText.innerText = "กล้องออนไลน์สำเร็จ";
-
-                // 2. ดึงโครงสร้างข้อมูลจากคลาวด์มาวาดตารางกริดจังหวะ
-                const songId = songSelect.value;
-                songData = await fetchSongData(songId);
-                
-                ui.renderGrid(songData);
-                statusText.innerText = `ระบบ OCM พร้อมใช้งาน: เพลง ${songData.title} (BPM: ${songData.bpm})`;
-                startBtn.disabled = false;
-            } catch (err) {
-                statusText.innerText = "เกิดข้อผิดพลาด: " + err.message;
-                console.error(err);
-            }
-        }
-
-        // เริ่มต้นการประมวลผลระบบ
-        bootstrap();
+        
+        setupWebcam();
+        loadSongFromCloud();
     </script>
 </body>
 </html>
