@@ -12,6 +12,10 @@ export class OCMAudioEngine {
         this.currentVideoId = null;
         this.fallbackVideoId = "M7lc1UVf-VE";
         this.lastReportedBeat = null;
+        this.lastReportedStateKey = null;
+        this.animationFrameId = null;
+        this.lastFrameTime = 0;
+        this.precomputedTimeline = [];
 
         // โหลดสคริปต์ YouTube IFrame API อัตโนมัติหากตรวจไม่พบบนหน้าต่าง Window ของระบบเบราว์เซอร์
         if (!window.YT) {
@@ -73,6 +77,43 @@ export class OCMAudioEngine {
         }
     }
 
+    setTimeline(songData) {
+        this.precomputedTimeline = this.extractTimelineEntries(songData);
+    }
+
+    extractTimelineEntries(songData) {
+        const candidates = [
+            songData?.precomputedTimeline,
+            songData?.precomputed,
+            songData?.timeline,
+            songData?.timelineData
+        ];
+
+        for (const candidate of candidates) {
+            if (Array.isArray(candidate) && candidate.length) return candidate;
+        }
+
+        return [];
+    }
+
+    resolveTimelineState(currentTime, currentBeat) {
+        if (!this.precomputedTimeline.length) return null;
+
+        const targetBeat = currentBeat ?? Math.floor(currentTime / (60 / this.bpm));
+        const exactBeatMatch = this.precomputedTimeline.find((entry) => {
+            const beatValue = entry.beat ?? entry.beatIndex ?? entry.index ?? entry.startBeat;
+            return beatValue === targetBeat;
+        });
+
+        if (exactBeatMatch) return exactBeatMatch;
+
+        return this.precomputedTimeline.find((entry) => {
+            const start = entry.startTime ?? entry.startSec ?? entry.time ?? entry.start ?? 0;
+            const end = entry.endTime ?? entry.endSec ?? entry.end ?? entry.duration ?? Infinity;
+            return currentTime >= start && currentTime < end;
+        }) || null;
+    }
+
     pause() {
         if (this.player && typeof this.player.pauseVideo === 'function') {
             this.player.pauseVideo();
@@ -117,11 +158,18 @@ export class OCMAudioEngine {
         const duration = this.player.getDuration();
         const beatDuration = 60 / this.bpm;
         const currentBeat = Math.floor(currentTime / beatDuration);
+        const timelineState = this.resolveTimelineState(currentTime, currentBeat);
+        const stateKey = timelineState ? JSON.stringify({
+            beat: currentBeat,
+            chord: timelineState.chord ?? timelineState.chordName ?? '',
+            lyric: timelineState.lyric ?? timelineState.lyrics ?? timelineState.text ?? ''
+        }) : `beat:${currentBeat}`;
 
-        if (this.lastReportedBeat !== currentBeat) {
+        if (this.lastReportedBeat !== currentBeat || this.lastReportedStateKey !== stateKey) {
             this.lastReportedBeat = currentBeat;
+            this.lastReportedStateKey = stateKey;
             if (this.onBeatUpdateCallback) {
-                this.onBeatUpdateCallback(currentBeat, currentTime, duration);
+                this.onBeatUpdateCallback(currentBeat, currentTime, duration, timelineState);
             }
         }
     }
@@ -129,15 +177,28 @@ export class OCMAudioEngine {
     startTracking() {
         this.stopTracking();
         this.updateBeatState();
-        this.syncInterval = setInterval(() => {
-            this.updateBeatState();
-        }, 25);
+
+        const tick = (timestamp) => {
+            if (!this.isPlaying || !this.player || typeof this.player.getCurrentTime !== 'function') {
+                return;
+            }
+
+            if (!this.lastFrameTime || timestamp - this.lastFrameTime >= 16) {
+                this.updateBeatState();
+                this.lastFrameTime = timestamp;
+            }
+
+            this.animationFrameId = window.requestAnimationFrame(tick);
+        };
+
+        this.animationFrameId = window.requestAnimationFrame(tick);
     }
 
     stopTracking() {
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-            this.syncInterval = null;
+        if (this.animationFrameId) {
+            window.cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
         }
+        this.lastFrameTime = 0;
     }
 }

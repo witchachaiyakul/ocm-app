@@ -74,22 +74,63 @@ export class OCMUIEngine {
         });
     }
 
-    updateVisuals(currentBeat, songData) {
+    getPrecomputedTimeline(songData) {
+        const candidates = [
+            songData?.precomputedTimeline,
+            songData?.precomputed,
+            songData?.timeline,
+            songData?.timelineData
+        ];
+
+        for (const candidate of candidates) {
+            if (Array.isArray(candidate) && candidate.length) return candidate;
+        }
+
+        return [];
+    }
+
+    resolveTimelineState(songData, currentBeat, currentTime = 0) {
+        const timeline = this.getPrecomputedTimeline(songData);
+        if (!timeline.length) return null;
+
+        const exactMatch = timeline.find((entry) => {
+            const beatValue = entry.beat ?? entry.beatIndex ?? entry.index ?? entry.startBeat;
+            return beatValue === currentBeat;
+        });
+
+        if (exactMatch) return exactMatch;
+
+        return timeline.find((entry) => {
+            const start = entry.startTime ?? entry.startSec ?? entry.time ?? entry.start ?? 0;
+            const end = entry.endTime ?? entry.endSec ?? entry.end ?? entry.duration ?? Infinity;
+            return currentTime >= start && currentTime < end;
+        }) || timeline[0];
+    }
+
+    updateVisuals(currentBeat, songData, timelineState = null) {
         this.blockElements.forEach(el => el && el.classList.remove('active'));
         this.updateBeatCount(currentBeat, songData);
         
         if (this.blockElements[currentBeat]) {
             const activeBlock = this.blockElements[currentBeat];
             activeBlock.classList.add('active');
+
+            const timelineChord = timelineState?.chord || timelineState?.chordName || null;
+            if (timelineChord) {
+                const chordSpan = activeBlock.querySelector('.chord-name');
+                if (chordSpan) chordSpan.innerText = timelineChord;
+            }
             
             // 🌟 ปรับคุณสมบัติเป็น 'auto' เพื่อล็อกหน้าจอดีดตามคอร์ดดนตรีสดได้ทันทีโดยไม่กระตุกค้าง
             activeBlock.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
         }
 
-        const activeLyrics = songData.lyricsTimeline.find(
+        const resolvedState = timelineState || this.resolveTimelineState(songData, currentBeat);
+        const lyricText = resolvedState?.lyrics || resolvedState?.lyric || resolvedState?.text || resolvedState?.caption || null;
+        const fallbackLyrics = songData.lyricsTimeline.find(
             item => currentBeat >= item.startBeat && currentBeat <= item.endBeat
         );
-        this.lyricsDisplay.innerText = activeLyrics ? activeLyrics.text : "🎤 (ช่วงดนตรีบรรเลง/Solo)";
+        this.lyricsDisplay.innerText = lyricText || (fallbackLyrics ? fallbackLyrics.text : "🎤 (ช่วงดนตรีบรรเลง/Solo)");
     }
 
     resetDisplays() {

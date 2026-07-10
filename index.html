@@ -369,8 +369,8 @@
 
         const audioEngine = new OCMAudioEngine(
             "yt-player", 
-            (currentBeat, currentTime, duration) => {
-                uiEngine.updateVisuals(currentBeat, songData);
+            (currentBeat, currentTime, duration, timelineState) => {
+                uiEngine.updateVisuals(currentBeat, songData, timelineState);
                 timeText.innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
             },
             () => {
@@ -472,6 +472,7 @@
                 
                 // สั่งเรนเดอร์ตารางบล็อกแนวนอนสไตล์เลื่อนตาม
                 uiEngine.renderGrid(songData);
+                audioEngine.setTimeline(songData);
                 
                 // ดึงพิกัดวิดีโอ YouTube สำรองกรณีค่าฐานข้อมูลว่างอยู่
                 const ytId = songData.youtubeId || "EczwTVG96fM";
