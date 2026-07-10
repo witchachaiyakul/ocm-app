@@ -123,6 +123,34 @@
             background: #222;
         }
 
+        /* Overlay สำหรับแสดงตัวเลขนับจังหวะบนกระจก */
+        #count-display {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 96px;
+            font-weight: 900;
+            color: rgba(255,255,255,0.95);
+            text-shadow: 0 6px 18px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.45);
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+            letter-spacing: 6px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        @keyframes countPulse {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.18); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+        }
+
+        #count-display.pulse {
+            animation: countPulse 0.48s ease-out both;
+            will-change: transform, opacity;
+        }
+
         /* ส่วนแถบควบคุมตรงกลาง */
         .control-bar {
             background: var(--panel-bg);
@@ -298,6 +326,17 @@
     </div>
 
     <div id="main-dashboard" class="hidden main-layout">
+        <div class="media-box w-full max-w-5xl h-[450px]" style="padding:0; overflow: hidden;">
+            <h3 style="margin:12px; color:#ccc;">👁️ กระจกโต้ตอบการเคลื่อนไหว (Visual Mirror)</h3>
+            <div class="video-wrapper" style="height: calc(100% - 48px); border-radius: 8px;">
+                <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+                <canvas id="output-canvas"></canvas>
+                <div id="count-display"></div>
+                <div id="mirror-fallback" class="mirror-fallback">
+                    กำลังรอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...
+                </div>
+            </div>
+        </div>
         <div class="intro-note">
             <strong>คำแนะนำ:</strong> เข้าสู่ระบบจาก LINE แล้วเลือกเพลงเพื่อเริ่มซ้อมกับกระจกและคอร์ดแบบเรียลไทม์
         </div>
@@ -328,16 +367,6 @@
             <span id="duration-text" class="progress-time">0:00</span>
         </div>
 
-            <div class="media-box">
-                <h3>👁️ กระจกโต้ตอบการเคลื่อนไหว (Visual Mirror)</h3>
-                <div class="video-wrapper">
-                    <video id="webcam" autoplay playsinline muted style="display: none;"></video>
-                    <canvas id="output-canvas"></canvas>
-                    <div id="mirror-fallback" class="mirror-fallback">
-                        กำลังรอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="control-bar">
@@ -540,6 +569,49 @@
             currentTimeText.innerText = formatTime(currentTime);
         }
 
+        // คำนวณตัวเลขนับจังหวะก่อนเริ่มเพลง (แสดงบนกระจก)
+        let __lastCountdownValue = null;
+        function getCountdownNumber(currentTime) {
+            if (!songData) return null;
+            const startOffset = Number(songData.startOffset ?? 0);
+            const bpm = Number(songData.bpm ?? 120);
+            if (!bpm || bpm <= 0) return null;
+            const beatDur = 60 / bpm;
+            const totalCounts = 4;
+            const countdownStart = startOffset - totalCounts * beatDur;
+            if (currentTime < countdownStart || currentTime >= startOffset) return null;
+            const elapsed = currentTime - countdownStart;
+            let index = Math.floor(elapsed / beatDur) + 1; // 1..4 ascending
+            if (index < 1) index = 1;
+            if (index > totalCounts) index = totalCounts;
+            // Convert to reversed display 4..1
+            const display = totalCounts - index + 1;
+            return display; // 4..1
+        }
+
+        function updateCountDisplay(currentTime) {
+            const el = document.getElementById('count-display');
+            if (!el) return;
+            const n = getCountdownNumber(currentTime);
+            if (n === null) {
+                el.style.display = 'none';
+                el.innerText = '';
+                __lastCountdownValue = null;
+                el.classList.remove('pulse');
+                return;
+            }
+            el.innerText = String(n);
+            el.style.display = 'block';
+            // ถ้าเปลี่ยนค่า ให้รีทริกเกอร์ animation pulse
+            if (__lastCountdownValue !== n) {
+                el.classList.remove('pulse');
+                // force reflow to restart animation
+                void el.offsetWidth;
+                el.classList.add('pulse');
+                __lastCountdownValue = n;
+            }
+        }
+
         function syncProgressUi() {
             if (!audioEngine || !audioEngine.isPlaying) return;
             const currentTime = audioEngine.getCurrentTime();
@@ -660,6 +732,11 @@
 
     // --- (โค้ดดักจับคอร์ด เนื้อร้อง และเสียงกลองชุดเดิมของคุณครูวิ่งตรงนี้) ---
     // ...
+
+    // อัปเดตการแสดงตัวเลขนับจังหวะบนกระจก (ก่อนเริ่มเพลงจริง)
+    try {
+        updateCountDisplay(currentTime);
+    } catch (e) { /* ไม่ให้ขัดการทำงานหลักแม้เกิดปัญหา */ }
 
     if (player.getPlayerState() === YT.PlayerState.PLAYING) {
         requestAnimationFrame(syncOCMApp);
