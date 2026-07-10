@@ -93,6 +93,27 @@
             margin-bottom: 16px;
         }
 
+        .profile-card, .setup-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+        }
+
+        .profile-card h4, .setup-card h4 {
+            margin: 0 0 8px 0;
+            color: #f8fafc;
+            font-size: 15px;
+        }
+
+        .profile-card p, .setup-card p {
+            margin: 4px 0;
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
         #yt-player { width: 100%; height: 100%; border: none; }
         
         #output-canvas {
@@ -211,17 +232,30 @@
     <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-50">
         <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl w-full max-w-sm text-center shadow-2xl">
             <h2 class="text-2xl font-bold text-white mb-6">ยินดีต้อนรับสู่ OCM</h2>
-            <p class="text-slate-400 mb-8 text-sm">ล็อกอินเพื่อเข้าสู่ห้องซ้อมและประวัติการซ้อมของคุณ</p>
-            
+            <p class="text-slate-400 mb-6 text-sm">ล็อกอินเพื่อเข้าสู่ห้องซ้อมและประวัติการซ้อมของคุณ</p>
+            <input id="login-user-id" type="text" placeholder="ชื่อหรือรหัสผู้ใช้" class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white mb-4" />
             <button id="btn-mock-login" class="w-full py-3 bg-[#00B900] hover:bg-[#009900] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all">
-                <i class="ph-bold ph-line-logo text-xl"></i> ล็อกอินด้วย LINE (จำลอง)
+                <i class="ph-bold ph-line-logo text-xl"></i> เข้าสู่ระบบ
             </button>
+            <p class="text-xs text-slate-500 mt-4">ระบบจะตรวจข้อมูลจาก Firestore ว่าคุณเคยเลือกเพลงไว้หรือยัง</p>
         </div>
     </div>
 
     <div id="main-dashboard" class="hidden main-layout">
         <div class="intro-note">
             <strong>คำแนะนำ:</strong> เข้าสู่ระบบจาก LINE แล้วเลือกเพลงเพื่อเริ่มซ้อมกับกระจกและคอร์ดแบบเรียลไทม์
+        </div>
+
+        <div id="user-profile-card" class="profile-card hidden">
+            <h4 id="profile-greeting">ผู้ใช้</h4>
+            <p id="profile-details">กำลังตรวจสอบข้อมูลจาก Firestore...</p>
+        </div>
+
+        <div id="new-user-setup" class="setup-card hidden">
+            <h4>ผู้ใช้ใหม่ — เลือกเพลงจาก Firestore</h4>
+            <p>ระบบยังไม่พบประวัติการเลือกเพลงของคุณ กรุณาเลือกเพลงเพื่อเริ่มใช้งาน</p>
+            <select id="new-user-song-select" class="w-full mt-3 px-3 py-2 rounded-lg text-black"></select>
+            <button id="btn-confirm-song" class="mt-3 w-full py-2 bg-[#00B900] hover:bg-[#009900] text-white font-bold rounded-lg">ยืนยันเลือกเพลง</button>
         </div>
         
         <div class="top-media-section">
@@ -265,7 +299,7 @@
 
     <script type="module">
         // 🌟 ย้าย Import ทั้งหมดขึ้นมาไว้บนสุดเพื่อป้องกันสโคปของตัวแปรพัง
-        import { db, fetchSongData } from "./src/firebase.js";
+        import { db, fetchSongData, fetchSongsCatalog, fetchUserProfile, saveUserProfile } from "./src/firebase.js";
         import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
         import { OCMVisualEngine } from "./src/mirror.js";
         import { OCMAudioEngine } from "./src/audio.js";
@@ -281,8 +315,17 @@
         const timeText = document.getElementById('time-text');
         const timelineTitle = document.getElementById('timeline-title');
         const mirrorFallback = document.getElementById('mirror-fallback');
+        const loginUserIdInput = document.getElementById('login-user-id');
+        const userProfileCard = document.getElementById('user-profile-card');
+        const profileGreeting = document.getElementById('profile-greeting');
+        const profileDetails = document.getElementById('profile-details');
+        const newUserSetup = document.getElementById('new-user-setup');
+        const newUserSongSelect = document.getElementById('new-user-song-select');
+        const btnConfirmSong = document.getElementById('btn-confirm-song');
 
         let songData = null;
+        let activeUserId = null;
+        let activeUserProfile = null;
 
         // 🌟 ประกอบร่าง Engines ย่อยตามหลักการแยกโมดูล
         const uiEngine = new OCMUIEngine({
@@ -306,24 +349,37 @@
 
         // 🌟 ฟังก์ชันจัดการจำลองการ Authentication ผ่านทาง LINE
         btnMockLogin.addEventListener('click', async () => {
-            const mockLineId = "U123456789"; // จำลองค่ารับเข้าจากไลน์ API ในอนาคต
-            statusText.innerText = "กำลังตรวจสอบสิทธิ์ในฐานข้อมูลสหพันธ์...";
+            const enteredId = (loginUserIdInput.value || "guest-user").trim();
+            const userId = enteredId || "guest-user";
+            activeUserId = userId;
+            statusText.innerText = "กำลังตรวจสอบข้อมูลผู้ใช้จาก Firestore...";
             
             try {
-                const userDoc = await getDoc(doc(db, "users", mockLineId));
+                const userDoc = await fetchUserProfile(userId);
                 
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    
-                    // ปิดหน้าจอ Login และทำการเปลี่ยน State เป็นพื้นที่ Dashboard หลัก
+                if (userDoc) {
+                    activeUserProfile = userDoc;
                     loginScreen.classList.add('hidden');
                     mainDashboard.classList.remove('hidden');
-                    
-                    // ดึงและตั้งค่าบริบทเพลงเฉพาะของวงดนตรีนั้น
-                    await loadBandData(userData.bandId);
+                    renderUserProfile(userDoc);
+                    await populateSongOptions(userDoc.selectedSongId || userDoc.songId || null);
+                    if (userDoc.selectedSongId || userDoc.songId) {
+                        songSelect.value = userDoc.selectedSongId || userDoc.songId;
+                        await loadSongFromFirestore(userDoc.selectedSongId || userDoc.songId);
+                    } else {
+                        newUserSetup.classList.remove('hidden');
+                        statusText.innerText = `ยินดีต้อนรับ ${userDoc.name || userId} กรุณาเลือกเพลงเพื่อเริ่มซ้อม`;
+                    }
+                    bootstrap();
                 } else {
-                    alert("ไม่พบข้อมูลบัญชีรายชื่อนักเรียนนี้บนคลาวด์ โปรดสร้าง Document ID: U123456789 ใน Collection 'users' ก่อนครับ");
-                    statusText.innerText = "การยืนยันตัวตนล้มเหลว";
+                    activeUserProfile = { name: userId, members: [], customizations: [] };
+                    loginScreen.classList.add('hidden');
+                    mainDashboard.classList.remove('hidden');
+                    renderUserProfile(activeUserProfile, true);
+                    await populateSongOptions();
+                    newUserSetup.classList.remove('hidden');
+                    statusText.innerText = "ผู้ใช้ใหม่ กรุณาเลือกเพลงจาก Firestore ก่อนเริ่มใช้งาน";
+                    bootstrap();
                 }
             } catch (e) {
                 console.error(e);
@@ -331,30 +387,49 @@
             }
         });
 
-        // ดึงข้อมูลการตั้งค่าบริบทวง (Band Context)
-        async function loadBandData(bandId) {
-            statusText.innerText = `กำลังดึงข้อมูลบริบทของวง: ${bandId}...`;
+        async function populateSongOptions(preferredSongId = null) {
             try {
-                const bandDoc = await getDoc(doc(db, "bands", bandId));
-                if (bandDoc.exists()) {
-                    statusText.innerText = `ยินดีต้อนรับนักเรียนจากวง: ${bandDoc.data().bandName || bandId}`;
-                    // โหลดเพลงหลักจำลองของวงขึ้นมาแสดงผลต่อทันที
-                    await loadSongFromFirestore();
-                } else {
-                    statusText.innerText = `เชื่อมต่อสำเร็จ (เปิดโหมดจับคู่วงแบบอิสระ: ${bandId})`;
-                    await loadSongFromFirestore();
+                const songs = await fetchSongsCatalog();
+                const options = songs.map(song => {
+                    const selected = song.id === preferredSongId ? 'selected' : '';
+                    return `<option value="${song.id}" ${selected}>${song.title}</option>`;
+                });
+
+                if (options.length === 0) {
+                    songSelect.innerHTML = '<option value="">ไม่มีเพลงใน Firestore</option>';
+                    newUserSongSelect.innerHTML = '<option value="">ไม่มีเพลงใน Firestore</option>';
+                    return;
                 }
-            } catch (e) {
-                statusText.innerText = "Error loadBandData: " + e.message;
+
+                songSelect.innerHTML = options.join('');
+                newUserSongSelect.innerHTML = options.join('');
+            } catch (err) {
+                console.error(err);
+                songSelect.innerHTML = '<option value="">ไม่สามารถโหลดเพลงจาก Firestore ได้</option>';
+                newUserSongSelect.innerHTML = '<option value="">ไม่สามารถโหลดเพลงจาก Firestore ได้</option>';
             }
         }
 
+        function renderUserProfile(profile, isNewUser = false) {
+            userProfileCard.classList.remove('hidden');
+            const displayName = profile?.name || activeUserId || 'ผู้ใช้';
+            const selectedSong = profile?.selectedSongTitle || profile?.selectedSongId || 'ยังไม่เลือก';
+            const members = Array.isArray(profile?.members) && profile.members.length > 0 ? profile.members.join(', ') : 'ยังไม่มีข้อมูลสมาชิก';
+            const customizations = Array.isArray(profile?.customizations) && profile.customizations.length > 0 ? profile.customizations.join(', ') : 'ยังไม่มีข้อมูลการปรับแต่ง';
+
+            profileGreeting.innerText = isNewUser ? `ผู้ใช้ใหม่: ${displayName}` : `ยินดีต้อนรับ ${displayName}`;
+            profileDetails.innerHTML = `
+                <strong>เพลงที่เลือก:</strong> ${selectedSong}<br>
+                <strong>สมาชิกในวง:</strong> ${members}<br>
+                <strong>การปรับแต่งเพลง:</strong> ${customizations}
+            `;
+        }
+
         // ดึงโครงสร้างข้อมูลของเนื้อเพลงและทางคอร์ดจาก Cloud Firestore
-        async function loadSongFromFirestore() {
+        async function loadSongFromFirestore(songId = songSelect.value) {
             playBtn.disabled = true;
             statusText.innerText = "กำลังซิงค์ข้อมูลเพลงและตัวโน้ตกับคลาวด์...";
             try {
-                const songId = songSelect.value;
                 songData = await fetchSongData(songId);
                 
                 statusText.innerText = `พร้อมทำการซ้อมเรียบร้อย! เพลง: "${songData.title}"`;
@@ -390,7 +465,34 @@
             }
         });
 
-        songSelect.addEventListener('change', loadSongFromFirestore);
+        songSelect.addEventListener('change', () => loadSongFromFirestore(songSelect.value));
+
+        btnConfirmSong.addEventListener('click', async () => {
+            const selectedSongId = newUserSongSelect.value;
+            if (!selectedSongId) {
+                alert('กรุณาเลือกเพลงก่อนยืนยัน');
+                return;
+            }
+
+            try {
+                const selectedSong = await fetchSongData(selectedSongId);
+                activeUserProfile = await saveUserProfile(activeUserId, {
+                    name: activeUserProfile?.name || activeUserId,
+                    selectedSongId,
+                    selectedSongTitle: selectedSong.title,
+                    members: activeUserProfile?.members || [],
+                    customizations: activeUserProfile?.customizations || []
+                });
+                renderUserProfile(activeUserProfile);
+                songSelect.value = selectedSongId;
+                await loadSongFromFirestore(selectedSongId);
+                newUserSetup.classList.add('hidden');
+                statusText.innerText = `บันทึกเพลงเรียบร้อยแล้ว: ${selectedSong.title}`;
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = 'ไม่สามารถบันทึกเพลงที่เลือกได้: ' + err.message;
+            }
+        });
 
         function showMirrorFallback(message) {
             if (mirrorFallback) {
@@ -407,18 +509,18 @@
 
         // ฟังก์ชันเปิดระบบโดยเริ่มต้นจากอุปกรณ์มองเห็น (Visual Hardware Interface Only)
         async function bootstrap() {
-            showMirrorFallback('กำลังขอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...');
-            try {
-                await visualEngine.init();
-                hideMirrorFallback();
-            } catch (err) {
-                console.error(err);
-                statusText.innerText = "เกิดข้อผิดพลาดในการเข้าถึงกล้องตรวจจับ: " + err.message;
-                showMirrorFallback('ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่อีกครั้ง');
+            if (!mainDashboard.classList.contains('hidden')) {
+                showMirrorFallback('กำลังขอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...');
+                try {
+                    await visualEngine.init();
+                    hideMirrorFallback();
+                } catch (err) {
+                    console.error(err);
+                    statusText.innerText = "เกิดข้อผิดพลาดในการเข้าถึงกล้องตรวจจับ: " + err.message;
+                    showMirrorFallback('ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่อีกครั้ง');
+                }
             }
         }
-
-        bootstrap();
     </script>
 </body>
 </html>
