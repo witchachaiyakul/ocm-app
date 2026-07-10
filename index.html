@@ -222,6 +222,36 @@
             min-height: 28px;
             border-left: 5px solid var(--primary-color);
         }
+
+        .beat-count-display {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+            margin: 12px 0 8px 0;
+            flex-wrap: wrap;
+        }
+
+        .count-pill {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #2b2b2b;
+            color: #9ca3af;
+            font-weight: 700;
+            font-size: 16px;
+            transition: all 0.15s ease;
+        }
+
+        .count-pill.active {
+            background: var(--active-block);
+            color: #111;
+            transform: scale(1.08);
+            box-shadow: 0 0 10px rgba(255, 222, 89, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -291,6 +321,7 @@
 
         <div class="timeline-section">
             <h3 style="margin-top: 0; font-size: 16px; color: #aaa;" id="timeline-title">🎵 แถบจังหวะและคอร์ด</h3>
+            <div class="beat-count-display" id="beat-count-display"></div>
             <div class="chord-timeline-scroll" id="chord-timeline"></div>
             <div class="lyrics-bar" id="lyrics-display">🎤 กดปุ่มเล่นเพลงเพื่อเริ่มการซิงค์จังหวะดนตรี...</div>
         </div>
@@ -330,7 +361,8 @@
         // 🌟 ประกอบร่าง Engines ย่อยตามหลักการแยกโมดูล
         const uiEngine = new OCMUIEngine({
             gridId: "chord-timeline",
-            lyricsId: "lyrics-display"
+            lyricsId: "lyrics-display",
+            beatCountId: "beat-count-display"
         });
 
         const visualEngine = new OCMVisualEngine("webcam", "output-canvas");
@@ -344,6 +376,9 @@
             () => {
                 uiEngine.resetDisplays();
                 playBtn.innerText = "▶ เล่นเพลง";
+            },
+            (errorCode, videoId) => {
+                statusText.innerText = `ไม่สามารถเปิดวิดีโอ YouTube จากรหัส ${videoId} ได้ ระบบจะใช้วิดีโอทดสอบแทน`;
             }
         );
 
