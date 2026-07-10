@@ -13,6 +13,7 @@ export class OCMAudioEngine {
         this.fallbackVideoId = "M7lc1UVf-VE";
         this.lastReportedBeat = null;
         this.lastReportedStateKey = null;
+        this.lastReportedTime = null;
         this.animationFrameId = null;
         this.lastFrameTime = 0;
         this.precomputedTimeline = [];
@@ -75,6 +76,26 @@ export class OCMAudioEngine {
             this.player.playVideo();
             this.updateBeatState();
         }
+    }
+
+    getCurrentTime() {
+        if (!this.player || typeof this.player.getCurrentTime !== 'function') return 0;
+        return this.player.getCurrentTime();
+    }
+
+    getDuration() {
+        if (!this.player || typeof this.player.getDuration !== 'function') return 0;
+        return this.player.getDuration();
+    }
+
+    getPlayerState() {
+        if (!this.player || typeof this.player.getPlayerState !== 'function') return -1;
+        return this.player.getPlayerState();
+    }
+
+    seekTo(seconds) {
+        if (!this.player || typeof this.player.seekTo !== 'function') return;
+        this.player.seekTo(Number(seconds), true);
     }
 
     setTimeline(songData) {
@@ -165,9 +186,13 @@ export class OCMAudioEngine {
             lyric: timelineState.lyric ?? timelineState.lyrics ?? timelineState.text ?? ''
         }) : `beat:${currentBeat}`;
 
-        if (this.lastReportedBeat !== currentBeat || this.lastReportedStateKey !== stateKey) {
+        const timeTick = Math.floor(currentTime * 10) / 10;
+        const shouldUpdate = this.lastReportedBeat !== currentBeat || this.lastReportedStateKey !== stateKey || this.lastReportedTime !== timeTick;
+
+        if (shouldUpdate) {
             this.lastReportedBeat = currentBeat;
             this.lastReportedStateKey = stateKey;
+            this.lastReportedTime = timeTick;
             if (this.onBeatUpdateCallback) {
                 this.onBeatUpdateCallback(currentBeat, currentTime, duration, timelineState);
             }

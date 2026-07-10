@@ -157,6 +157,32 @@
 
         .time-display { font-family: monospace; font-size: 16px; color: #aaa; }
 
+        .progress-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 700px;
+            margin: 12px auto 0;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 999px;
+        }
+
+        .progress-row input[type="range"] {
+            flex: 1;
+            accent-color: var(--active-block);
+            cursor: pointer;
+        }
+
+        .progress-time {
+            min-width: 44px;
+            text-align: center;
+            font-family: monospace;
+            color: #f8fafc;
+            font-size: 13px;
+        }
+
         /* ส่วนล่าง: แผงควบคุมคอร์ดและตัวโน้ตแนวนอน (Chordify Style) */
         .timeline-section {
             background: var(--panel-bg);
@@ -296,6 +322,12 @@
                 </div>
             </div>
 
+        <div class="progress-row">
+            <span id="current-time-text" class="progress-time">0:00</span>
+            <input type="range" id="custom-progress" min="0" max="100" value="0" step="0.1" />
+            <span id="duration-text" class="progress-time">0:00</span>
+        </div>
+
             <div class="media-box">
                 <h3>👁️ กระจกโต้ตอบการเคลื่อนไหว (Visual Mirror)</h3>
                 <div class="video-wrapper">
@@ -338,8 +370,7 @@
 
         const loginScreen = document.getElementById('login-screen');
         const mainDashboard = document.getElementById('main-dashboard');
-        const btnMockLogin = document.getElementById('btn-mock-login');
-        
+        const btnMockLogin = document.getElementById('btn-mock-login');        
         const statusText = document.getElementById('status');
         const playBtn = document.getElementById('play-btn');
         const songSelect = document.getElementById('song-select');
@@ -353,7 +384,11 @@
         const newUserSetup = document.getElementById('new-user-setup');
         const newUserSongSelect = document.getElementById('new-user-song-select');
         const btnConfirmSong = document.getElementById('btn-confirm-song');
+        const progressBar = document.getElementById('custom-progress');
+        const currentTimeText = document.getElementById('current-time-text');
+        const durationText = document.getElementById('duration-text');
 
+        let isUserDragging = false;
         let songData = null;
         let activeUserId = null;
         let activeUserProfile = null;
@@ -372,6 +407,7 @@
             (currentBeat, currentTime, duration, timelineState) => {
                 uiEngine.updateVisuals(currentBeat, songData, timelineState);
                 timeText.innerText = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+                updateProgressUi(currentTime, duration);
             },
             () => {
                 uiEngine.resetDisplays();
@@ -477,6 +513,7 @@
                 // ดึงพิกัดวิดีโอ YouTube สำรองกรณีค่าฐานข้อมูลว่างอยู่
                 const ytId = songData.youtubeId || "EczwTVG96fM";
                 audioEngine.loadVideo(ytId, songData.bpm);
+                updateProgressUi(0, 0);
                 
                 playBtn.disabled = false;
             } catch (err) {
@@ -485,11 +522,70 @@
         }
 
         function formatTime(seconds) {
-            if (isNaN(seconds)) return "00:00";
-            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            if (isNaN(seconds)) return "0:00";
+            const m = Math.floor(seconds / 60);
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
             return `${m}:${s}`;
         }
+
+        function updateProgressUi(currentTime, duration) {
+            if (!progressBar) return;
+            if (!isNaN(duration) && duration > 0) {
+                progressBar.max = duration;
+                durationText.innerText = formatTime(duration);
+            }
+            if (!isUserDragging) {
+                progressBar.value = isNaN(currentTime) ? 0 : currentTime;
+            }
+            currentTimeText.innerText = formatTime(currentTime);
+        }
+
+        function syncProgressUi() {
+            if (!audioEngine || !audioEngine.isPlaying) return;
+            const currentTime = audioEngine.getCurrentTime();
+            const duration = audioEngine.getDuration();
+            updateProgressUi(currentTime, duration);
+            if (audioEngine.isPlaying && !isUserDragging) {
+                window.requestAnimationFrame(syncProgressUi);
+            }
+        }
+
+        progressBar.addEventListener('mousedown', () => {
+            isUserDragging = true;
+        });
+
+        progressBar.addEventListener('touchstart', () => {
+            isUserDragging = true;
+        });
+
+        progressBar.addEventListener('input', () => {
+            const seekTime = Number(progressBar.value);
+            currentTimeText.innerText = formatTime(seekTime);
+            if (audioEngine && typeof audioEngine.seekTo === 'function') {
+                audioEngine.seekTo(seekTime);
+            }
+        });
+
+        progressBar.addEventListener('change', () => {
+            const seekTime = Number(progressBar.value);
+            if (audioEngine && typeof audioEngine.seekTo === 'function') {
+                audioEngine.seekTo(seekTime);
+            }
+            currentTimeText.innerText = formatTime(seekTime);
+            isUserDragging = false;
+            if (audioEngine && audioEngine.isPlaying) {
+                window.requestAnimationFrame(syncProgressUi);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isUserDragging) {
+                isUserDragging = false;
+                if (audioEngine && audioEngine.isPlaying) {
+                    window.requestAnimationFrame(syncProgressUi);
+                }
+            }
+        });
 
         playBtn.addEventListener('click', () => {
             if (audioEngine.isPlaying) {
@@ -498,6 +594,7 @@
             } else {
                 audioEngine.play();
                 playBtn.innerText = "⏸ หยุดชั่วคราว";
+                window.requestAnimationFrame(syncProgressUi);
             }
         });
 
@@ -542,6 +639,32 @@
                 mirrorFallback.style.display = 'none';
             }
         }
+
+        function syncOCMApp() {
+    if (!player || typeof player.getCurrentTime !== 'function') return;
+    
+    const currentTime = player.getCurrentTime();
+    const duration = player.getDuration();
+
+    // 1. ตั้งค่าความยาวสูงสุดของแถบเลื่อนเมื่อเพลงเริ่มรัน
+    if (progressBar.max !== duration.toString()) {
+        progressBar.max = duration;
+        durationText.innerText = formatTime(duration);
+    }
+
+    // 2. ถ้าผู้ใช้ไม่ได้กำลังเอานิ้วลากอยู่ ให้แถบเลื่อนวิ่งตามเวลาเพลง
+    if (!isUserDragging) {
+        progressBar.value = currentTime;
+        currentTimeText.innerText = formatTime(currentTime);
+    }
+
+    // --- (โค้ดดักจับคอร์ด เนื้อร้อง และเสียงกลองชุดเดิมของคุณครูวิ่งตรงนี้) ---
+    // ...
+
+    if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+        requestAnimationFrame(syncOCMApp);
+    }
+}
 
         // ฟังก์ชันเปิดระบบโดยเริ่มต้นจากอุปกรณ์มองเห็น (Visual Hardware Interface Only)
         async function bootstrap() {
