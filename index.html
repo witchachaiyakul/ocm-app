@@ -68,6 +68,31 @@
             overflow: hidden;
         }
 
+        .mirror-fallback {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.72);
+            color: #f3f4f6;
+            font-size: 14px;
+            line-height: 1.5;
+            z-index: 2;
+        }
+
+        .intro-note {
+            background: rgba(0, 173, 181, 0.15);
+            border: 1px solid rgba(0, 173, 181, 0.35);
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: #d1fae5;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
         #yt-player { width: 100%; height: 100%; border: none; }
         
         #output-canvas {
@@ -195,6 +220,9 @@
     </div>
 
     <div id="main-dashboard" class="hidden main-layout">
+        <div class="intro-note">
+            <strong>คำแนะนำ:</strong> เข้าสู่ระบบจาก LINE แล้วเลือกเพลงเพื่อเริ่มซ้อมกับกระจกและคอร์ดแบบเรียลไทม์
+        </div>
         
         <div class="top-media-section">
             <div class="media-box">
@@ -209,6 +237,9 @@
                 <div class="video-wrapper">
                     <video id="webcam" autoplay playsinline muted style="display: none;"></video>
                     <canvas id="output-canvas"></canvas>
+                    <div id="mirror-fallback" class="mirror-fallback">
+                        กำลังรอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...
+                    </div>
                 </div>
             </div>
         </div>
@@ -249,6 +280,7 @@
         const songSelect = document.getElementById('song-select');
         const timeText = document.getElementById('time-text');
         const timelineTitle = document.getElementById('timeline-title');
+        const mirrorFallback = document.getElementById('mirror-fallback');
 
         let songData = null;
 
@@ -360,13 +392,29 @@
 
         songSelect.addEventListener('change', loadSongFromFirestore);
 
+        function showMirrorFallback(message) {
+            if (mirrorFallback) {
+                mirrorFallback.style.display = 'flex';
+                mirrorFallback.innerText = message;
+            }
+        }
+
+        function hideMirrorFallback() {
+            if (mirrorFallback) {
+                mirrorFallback.style.display = 'none';
+            }
+        }
+
         // ฟังก์ชันเปิดระบบโดยเริ่มต้นจากอุปกรณ์มองเห็น (Visual Hardware Interface Only)
         async function bootstrap() {
+            showMirrorFallback('กำลังขอสิทธิ์กล้องเพื่อเริ่มกระจกโต้ตอบการเคลื่อนไหว...');
             try {
-                await visualEngine.init(); 
+                await visualEngine.init();
+                hideMirrorFallback();
             } catch (err) {
                 console.error(err);
                 statusText.innerText = "เกิดข้อผิดพลาดในการเข้าถึงกล้องตรวจจับ: " + err.message;
+                showMirrorFallback('ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตสิทธิ์กล้องแล้วลองใหม่อีกครั้ง');
             }
         }
 
